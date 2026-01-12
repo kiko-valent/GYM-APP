@@ -1,0 +1,253 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ========================================
+   DARK MODERN THEME - FitTrack
+   ======================================== */
+
+:root {
+  /* Background Colors */
+  --bg-primary: #0B1116;
+  --bg-card: #161C22;
+  --bg-card-lighter: #1E262E;
+  --bg-elevated: #252D37;
+  
+  /* Accent Colors */
+  --accent-lime: #D2FF00;
+  --accent-lime-dark: #B8E000;
+  --accent-cyan: #00C2FF;
+  --accent-cyan-dark: #00A3D9;
+  
+  /* Text Colors */
+  --text-primary: #FFFFFF;
+  --text-secondary: #8E99A4;
+  --text-tertiary: #5A6570;
+  
+  /* Border Colors */
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-default: rgba(255, 255, 255, 0.1);
+  
+  /* Shadows */
+  --shadow-lime: 0 0 30px rgba(210, 255, 0, 0.3);
+  --shadow-cyan: 0 0 30px rgba(0, 194, 255, 0.3);
+  
+  /* Radii */
+  --radius-card: 20px;
+  --radius-button: 16px;
+  --radius-pill: 9999px;
+  
+  /* Legacy shadcn/ui variables */
+  --background: 210 20% 7%;
+  --foreground: 0 0% 100%;
+  --card: 210 18% 11%;
+  --card-foreground: 0 0% 100%;
+  --popover: 210 18% 11%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 72 100% 50%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 195 100% 50%;
+  --secondary-foreground: 0 0% 0%;
+  --muted: 210 15% 20%;
+  --muted-foreground: 210 10% 60%;
+  --accent: 210 15% 20%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 210 15% 20%;
+  --input: 210 15% 20%;
+  --ring: 72 100% 50%;
+  --radius: 0.75rem;
+}
+
+/* Base Styles */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-card);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* Hide scrollbar for nav chips */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--accent-lime);
+  color: var(--bg-primary);
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+@layer utilities {
+  /* Card Styles */
+  .card-dark {
+    background-color: var(--bg-card);
+    border-radius: var(--radius-card);
+    border: 1px solid var(--border-subtle);
+  }
+  
+  .card-dark-lighter {
+    background-color: var(--bg-card-lighter);
+    border-radius: var(--radius-card);
+    border: 1px solid var(--border-subtle);
+  }
+  
+  /* Button Styles */
+  .btn-lime {
+    background-color: var(--accent-lime);
+    color: var(--bg-primary);
+    font-weight: 700;
+    border-radius: var(--radius-pill);
+    transition: all 0.2s ease;
+  }
+  
+  .btn-lime:hover {
+    background-color: var(--accent-lime-dark);
+    box-shadow: var(--shadow-lime);
+  }
+  
+  .btn-lime:active {
+    transform: scale(0.98);
+  }
+  
+  .btn-cyan {
+    background-color: var(--accent-cyan);
+    color: var(--bg-primary);
+    font-weight: 700;
+    border-radius: var(--radius-pill);
+    transition: all 0.2s ease;
+  }
+  
+  .btn-cyan:hover {
+    background-color: var(--accent-cyan-dark);
+    box-shadow: var(--shadow-cyan);
+  }
+  
+  .btn-dark-pill {
+    background-color: var(--bg-card-lighter);
+    color: var(--text-primary);
+    font-weight: 500;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-default);
+    transition: all 0.2s ease;
+  }
+  
+  .btn-dark-pill:hover {
+    background-color: var(--bg-elevated);
+    border-color: var(--text-tertiary);
+  }
+  
+  /* Text Styles */
+  .text-secondary {
+    color: var(--text-secondary);
+  }
+  
+  .text-tertiary {
+    color: var(--text-tertiary);
+  }
+  
+  /* Glow Effects */
+  .glow-lime {
+    box-shadow: var(--shadow-lime);
+  }
+  
+  .glow-cyan {
+    box-shadow: var(--shadow-cyan);
+  }
+  
+  /* Number Display */
+  .number-display {
+    font-size: 4.5rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  
+  .number-giant {
+    font-size: 6rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  
+  /* Label Styles */
+  .label-uppercase {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+  }
+}
+
+/* ========================================
+   COMPONENT OVERRIDES
+   ======================================== */
+
+/* Progress bar cyan */
+.progress-cyan {
+  background-color: var(--bg-card-lighter);
+}
+
+.progress-cyan > div {
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-cyan-dark));
+}
+
+/* Circular Progress Ring */
+.progress-ring {
+  transform: rotate(-90deg);
+}
+
+.progress-ring-bg {
+  stroke: var(--bg-card-lighter);
+  fill: none;
+}
+
+.progress-ring-fill {
+  stroke: var(--accent-cyan);
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+/* Input overrides for dark theme */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
