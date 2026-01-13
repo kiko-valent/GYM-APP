@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { Toaster } from '@/components/ui/toaster';
+import { Toaster } from '@/components/ui/toaster.jsx';
 import { AuthProvider, useAuth } from '@/contexts/SupabaseAuthContext';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
@@ -11,6 +11,7 @@ import ProgressPage from '@/pages/ProgressPage';
 import SettingsPage from '@/pages/SettingsPage';
 import ProfilePage from '@/pages/ProfilePage';
 import CalorieCalculatorPage from '@/pages/CalorieCalculatorPage';
+import NutritionPage from '@/pages/NutritionPage';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -54,6 +55,7 @@ function App() {
             <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
             <Route path="/calculator" element={<PrivateRoute><CalorieCalculatorPage /></PrivateRoute>} />
+            <Route path="/nutrition" element={<PrivateRoute><NutritionPage /></PrivateRoute>} />
             <Route path="/" element={<Navigate to="/login" />} />
           </Routes>
           <Toaster />

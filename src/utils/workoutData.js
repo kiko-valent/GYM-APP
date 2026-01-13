@@ -26,7 +26,7 @@ export async function getUserPlan(userId) {
       .from('user_plans')
       .select('plan_data')
       .eq('user_id', userId)
-      .maybeSingle(); 
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
       handleSupabaseError(error, 'getUserPlan');
@@ -39,12 +39,12 @@ export async function getUserPlan(userId) {
 
     // Create default plan if none exists
     const { data: newPlanData, error: insertError } = await supabase
-        .from('user_plans')
-        .insert({ user_id: userId, plan_data: defaultPlan })
-        .select('plan_data')
-        .single();
-    
-    if(insertError) {
+      .from('user_plans')
+      .insert({ user_id: userId, plan_data: defaultPlan })
+      .select('plan_data')
+      .single();
+
+    if (insertError) {
       handleSupabaseError(insertError, 'getUserPlan (create default)');
       return defaultPlan;
     }
@@ -59,27 +59,27 @@ export async function getUserPlan(userId) {
 export async function updateUserPlan(userId, planData) {
   try {
     const { data, error } = await supabase
-        .from('user_plans')
-        .update({ plan_data: planData, updated_at: new Date().toISOString() })
-        .eq('user_id', userId)
-        .select();
-        
+      .from('user_plans')
+      .update({ plan_data: planData, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .select();
+
     if (error) {
-       handleSupabaseError(error, 'updateUserPlan');
-       return { data: null, error };
+      handleSupabaseError(error, 'updateUserPlan');
+      return { data: null, error };
     }
 
     if (!data || data.length === 0) {
-        const { data: insertData, error: insertError } = await supabase
-            .from('user_plans')
-            .insert({ user_id: userId, plan_data: planData })
-            .select();
-            
-        if (insertError) {
-          handleSupabaseError(insertError, 'updateUserPlan (insert)');
-          return { data: null, error: insertError };
-        }
-        return { data: insertData, error: null };
+      const { data: insertData, error: insertError } = await supabase
+        .from('user_plans')
+        .insert({ user_id: userId, plan_data: planData })
+        .select();
+
+      if (insertError) {
+        handleSupabaseError(insertError, 'updateUserPlan (insert)');
+        return { data: null, error: insertError };
+      }
+      return { data: insertData, error: null };
     }
 
     return { data, error: null };
@@ -95,7 +95,7 @@ export async function getWorkoutPlanForDay(userId, day) {
     const plan = await getUserPlan(userId);
     const workout = plan.workouts?.[day];
     if (!workout) {
-        return { title: `Entrenamiento ${day}`, exercises: [] };
+      return { title: `Entrenamiento ${day}`, exercises: [] };
     }
     return {
       title: `Entrenamiento ${day.charAt(0).toUpperCase() + day.slice(1)}`,
@@ -127,7 +127,7 @@ export async function saveWorkoutSession(userId, session) {
     }
 
     // Prepare exercises with all details including RIR/RPE if available
-    const exercisesToInsert = session.exercises.flatMap(exercise => 
+    const exercisesToInsert = session.exercises.flatMap(exercise =>
       exercise.sets.map(set => ({
         session_id: sessionData.id,
         exercise_name: exercise.name,
@@ -146,7 +146,7 @@ export async function saveWorkoutSession(userId, session) {
       handleSupabaseError(exercisesError, 'saveWorkoutSession (exercises)');
       return { error: exercisesError };
     }
-    
+
     return { error: null };
   } catch (e) {
     handleSupabaseError(e, 'saveWorkoutSession (unexpected)');
@@ -175,7 +175,7 @@ export async function getWorkoutHistory(userId) {
       handleSupabaseError(error, 'getWorkoutHistory');
       return [];
     }
-    
+
     return data;
   } catch (e) {
     handleSupabaseError(e, 'getWorkoutHistory (unexpected)');
@@ -186,34 +186,34 @@ export async function getWorkoutHistory(userId) {
 export async function getPreviousWorkout(userId, day, exerciseName) {
   try {
     const { data, error } = await supabase
-        .from('workout_sessions')
-        .select('evaluation, notes, workout_exercises!inner(reps, weight, rir, rpe)')
-        .eq('user_id', userId)
-        .eq('day', day)
-        .eq('workout_exercises.exercise_name', exerciseName)
-        .order('date', { ascending: false })
-        .limit(1)
-        .maybeSingle(); 
+      .from('workout_sessions')
+      .select('evaluation, notes, workout_exercises!inner(reps, weight, rir, rpe)')
+      .eq('user_id', userId)
+      .eq('day', day)
+      .eq('workout_exercises.exercise_name', exerciseName)
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
-        handleSupabaseError(error, 'getPreviousWorkout');
-        return null;
+      handleSupabaseError(error, 'getPreviousWorkout');
+      return null;
     }
-    
+
     if (!data || !data.workout_exercises || data.workout_exercises.length === 0) {
-        return null;
+      return null;
     }
 
     const lastSession = data;
     const exerciseData = data.workout_exercises[0];
 
     return {
-        reps: exerciseData.reps,
-        weight: exerciseData.weight,
-        rir: exerciseData.rir,
-        rpe: exerciseData.rpe,
-        feeling: lastSession.evaluation?.feeling,
-        notes: lastSession.notes
+      reps: exerciseData.reps,
+      weight: exerciseData.weight,
+      rir: exerciseData.rir,
+      rpe: exerciseData.rpe,
+      feeling: lastSession.evaluation?.feeling,
+      notes: lastSession.notes
     };
   } catch (e) {
     handleSupabaseError(e, 'getPreviousWorkout (unexpected)');
@@ -248,6 +248,70 @@ export async function deleteWorkoutSession(sessionId) {
     return { error: null };
   } catch (e) {
     handleSupabaseError(e, 'deleteWorkoutSession (unexpected)');
+    return { error: e };
+  }
+}
+
+// Technique Videos
+export async function getTechniqueVideo(userId, exerciseName) {
+  try {
+    const { data, error } = await supabase
+      .from('user_exercise_videos')
+      .select('video_url')
+      .eq('user_id', userId)
+      .eq('exercise_name', exerciseName)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      handleSupabaseError(error, 'getTechniqueVideo');
+      return null;
+    }
+
+    return data?.video_url || null;
+  } catch (e) {
+    handleSupabaseError(e, 'getTechniqueVideo (unexpected)');
+    return null;
+  }
+}
+
+export async function uploadTechniqueVideo(userId, exerciseName, file) {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/${exerciseName.replace(/\s+/g, '_')}_${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    // 1. Upload to Storage
+    const { error: uploadError } = await supabase.storage
+      .from('technique-videos')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      handleSupabaseError(uploadError, 'uploadTechniqueVideo (storage)');
+      return { error: uploadError };
+    }
+
+    // 2. Get Public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('technique-videos')
+      .getPublicUrl(filePath);
+
+    // 3. Save to DB
+    const { error: dbError } = await supabase
+      .from('user_exercise_videos')
+      .upsert({
+        user_id: userId,
+        exercise_name: exerciseName,
+        video_url: publicUrl
+      }, { onConflict: 'user_id, exercise_name' });
+
+    if (dbError) {
+      handleSupabaseError(dbError, 'uploadTechniqueVideo (db)');
+      return { error: dbError };
+    }
+
+    return { publicUrl, error: null };
+  } catch (e) {
+    handleSupabaseError(e, 'uploadTechniqueVideo (unexpected)');
     return { error: e };
   }
 }

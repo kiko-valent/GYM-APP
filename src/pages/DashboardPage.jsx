@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { TrendingUp, LogOut, Dumbbell, Settings, User, Bell } from 'lucide-react';
+import { TrendingUp, LogOut, Dumbbell, Settings, User, Bell, Utensils } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import WeeklyPlan from '@/components/WeeklyPlan';
@@ -35,10 +35,12 @@ export default function DashboardPage() {
               <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-lime rounded-full border-2 border-dark-bg" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white">
-                Hey {user?.user_metadata?.full_name?.split(' ')[0] || 'Atleta'}!
-              </h1>
-              <p className="text-secondary text-sm">Ready to crush it?</p>
+              <div>
+                <h1 className="text-xl font-bold text-white">
+                  ¡Hola {user?.user_metadata?.full_name?.split(' ')[0] || 'Atleta'}!
+                </h1>
+                <p className="text-secondary text-sm">¿Listo para darlo todo?</p>
+              </div>
             </div>
           </div>
 
@@ -69,8 +71,8 @@ export default function DashboardPage() {
                     +15%
                   </span>
                 </div>
-                <p className="text-secondary text-sm mb-1">Weekly Volume</p>
-                <p className="text-3xl font-bold text-white">12,450<span className="text-lg text-secondary ml-1">kg</span></p>
+                <p className="text-secondary text-sm mb-1">Volumen Semanal</p>
+                <p className="text-3xl font-bold text-white">12.450<span className="text-lg text-secondary ml-1">kg</span></p>
               </div>
               {/* Mini Chart Placeholder */}
               <div className="w-24 h-12 flex items-end gap-0.5">
@@ -97,12 +99,12 @@ export default function DashboardPage() {
                 <Dumbbell className="w-5 h-5 text-lime" />
               </div>
               <div>
-                <p className="text-secondary text-sm mb-1">Today's Focus</p>
+                <p className="text-secondary text-sm mb-1">Objetivo de Hoy</p>
                 <h3 className="text-xl font-bold text-white leading-tight">
-                  Upper Body<br />Hypertrophy
+                  Hipertrofia<br />Torso
                 </h3>
                 <button className="mt-3 flex items-center gap-2 bg-dark-card-lighter hover:bg-dark-border px-4 py-2 rounded-full text-sm font-medium text-white transition-colors">
-                  Start
+                  Empezar
                   <span className="bg-white/20 rounded-full p-1">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -113,6 +115,36 @@ export default function DashboardPage() {
             </div>
           </motion.div>
         </div>
+
+        {/* Nutrition Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="mb-8"
+        >
+          <div
+            onClick={() => navigate('/nutrition')}
+            className="card-dark p-6 cursor-pointer hover:bg-dark-card-lighter transition-all group relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-lime/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:bg-lime/10" />
+
+            <div className="flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-4">
+                <div className="bg-lime/20 p-3 rounded-xl">
+                  <Utensils className="w-6 h-6 text-lime" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Mi Alimentación</h3>
+                  <p className="text-secondary text-sm">Gestiona tu dieta y recetas</p>
+                </div>
+              </div>
+              <Button variant="ghost" className="text-lime group-hover:bg-lime/10">
+                Ver Menú de Hoy
+              </Button>
+            </div>
+          </div>
+        </motion.div>
 
         {/* Weekly Plan */}
         <WeeklyPlan />
@@ -129,11 +161,11 @@ export default function DashboardPage() {
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
               </svg>
-              <span className="text-xs">Home</span>
+              <span className="text-xs">Inicio</span>
             </button>
             <button onClick={() => navigate('/progress')} className="flex flex-col items-center gap-1 p-2 text-secondary hover:text-white">
               <TrendingUp className="w-6 h-6" />
-              <span className="text-xs">Progress</span>
+              <span className="text-xs">Progreso</span>
             </button>
 
             {/* FAB Button */}
@@ -147,11 +179,11 @@ export default function DashboardPage() {
 
             <button onClick={() => navigate('/profile')} className="flex flex-col items-center gap-1 p-2 text-secondary hover:text-white">
               <User className="w-6 h-6" />
-              <span className="text-xs">Profile</span>
+              <span className="text-xs">Perfil</span>
             </button>
             <button onClick={() => navigate('/settings')} className="flex flex-col items-center gap-1 p-2 text-secondary hover:text-white">
               <Settings className="w-6 h-6" />
-              <span className="text-xs">Settings</span>
+              <span className="text-xs">Ajustes</span>
             </button>
           </div>
         </motion.div>

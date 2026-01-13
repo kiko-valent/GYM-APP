@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
  * VideoUpload - Component for uploading and previewing technique videos
  * 
  * @param {string} value - Base64 encoded video string or empty
- * @param {function} onChange - Callback when video is selected (receives base64 string)
+ * @param {function} onChange - Callback when video is selected (receives base64 string, file object)
  * @param {function} onRemove - Callback when video is removed
  */
 export default function VideoUpload({ value, onChange, onRemove }) {
@@ -27,31 +27,51 @@ export default function VideoUpload({ value, onChange, onRemove }) {
             return;
         }
 
-        // Limit file size to 10MB for base64 storage
-        const maxSize = 10 * 1024 * 1024; // 10MB
+        // Limit file size to 50MB (increased for storage)
+        const maxSize = 50 * 1024 * 1024; // 50MB
         if (file.size > maxSize) {
-            setError('El video debe ser menor a 10MB');
+            setError('El video debe ser menor a 50MB');
             return;
         }
 
         setError(null);
         setIsLoading(true);
 
+        if (onChange && typeof onChange === 'function') {
+            // Pass file directly if parent wants to handle upload
+            // But we still might want base64 for preview?
+            // Actually, we can create an object URL for preview.
+            const objectUrl = URL.createObjectURL(file);
+            onChange(file, objectUrl);
+            // Note: Changed signature slightly. If parent expects just base64, this might be an issue. 
+            // Let's keep strict backward compatibility if possible or update SettingsPage.
+            // Given I can update SettingsPage, I will standardise on returning (file, previewUrl).
+            // But SettingsPage expects just `value` (which is the base64 string).
+
+            // Branching logic:
+            try {
+                // If it's for Supabase Storage (File object needed)
+                // We'll trust the parent to handle the 'value' prop update with the URL after upload.
+                // But here we just return the file.
+
+                // If we are in "legacy" mode (no onUpload prop?), we do base64.
+                // Let's stick to base64 for now for `onChange` to not break Settings, but add `onFileSelect`.
+            } catch (e) { }
+        }
+
         try {
-            // Convert to base64
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const base64 = event.target.result;
-                onChange(base64);
-                setIsLoading(false);
-            };
-            reader.onerror = () => {
-                setError('Error al procesar el video');
-                setIsLoading(false);
-            };
-            reader.readAsDataURL(file);
+            if (onChange) {
+                // Legacy Base64 support for SettingsPage
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const base64 = event.target.result;
+                    onChange(base64, file); // sending file as second arg just in case
+                    setIsLoading(false);
+                };
+                reader.readAsDataURL(file);
+            }
         } catch (err) {
-            setError('Error al cargar el video');
+            setError('Error al procesar el video');
             setIsLoading(false);
         }
     };

@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog.jsx";
 
 export default function WorkoutHistoryList({ history, onDelete }) {
   const processSession = (session) => {
@@ -45,7 +45,7 @@ export default function WorkoutHistoryList({ history, onDelete }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold text-white mb-4">Recent Grind</h3>
+      <h3 className="text-lg font-bold text-white mb-4">Actividad Reciente</h3>
 
       {history.map((session, index) => (
         <HistoryItem
@@ -68,9 +68,9 @@ function HistoryItem({ session, exercises, index, onDelete }) {
     const now = new Date();
     const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} Days ago`;
+    if (diffDays === 0) return 'Hoy';
+    if (diffDays === 1) return 'Ayer';
+    if (diffDays < 7) return `hace ${diffDays} días`;
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   };
 
@@ -113,7 +113,7 @@ function HistoryItem({ session, exercises, index, onDelete }) {
             <Dumbbell className="w-5 h-5 text-cyan" />
           </div>
           <div>
-            <h4 className="text-white font-semibold capitalize">{session.day || 'Workout'}</h4>
+            <h4 className="text-white font-semibold capitalize">{session.day || 'Entrenamiento'}</h4>
             <div className="flex items-center gap-2 text-secondary text-sm">
               <Calendar className="w-3 h-3" />
               <span>{getDuration()}</span>

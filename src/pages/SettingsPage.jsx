@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Trash2, PlusCircle, Save, Loader2, AlertCircle, StickyNote, Gauge, Target, Calendar, Calculator, Wrench, ChevronRight, Video } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button.jsx';
+import { Input } from '@/components/ui/input.jsx';
+import { Label } from '@/components/ui/label.jsx';
+import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { getUserPlan, updateUserPlan } from '@/utils/workoutData';
-import { useToast } from "@/components/ui/use-toast";
-import VideoUpload from '@/components/VideoUpload';
+import { useToast } from "@/components/ui/use-toast.js";
+import VideoUpload from '@/components/VideoUpload.jsx';
 
 const allDays = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 
@@ -386,14 +386,17 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-1.5 pt-3 border-t border-dark-border">
-                      <Label className="text-xs text-cyan uppercase font-bold tracking-wider flex items-center gap-2">
-                        <Video className="w-3 h-3" />
-                        Video de Técnica <span className="text-tertiary font-normal normal-case">(Opcional)</span>
-                      </Label>
-                      <VideoUpload
+                      <div className="flex items-center gap-2">
+                        <Video className="w-3 h-3 text-red-400" />
+                        <Label className="text-xs text-red-300 uppercase font-bold tracking-wider">
+                          Video YouTube <span className="text-white/30 font-normal normal-case">(Opcional)</span>
+                        </Label>
+                      </div>
+                      <Input
                         value={ex.techniqueVideo || ''}
-                        onChange={(base64) => handleExerciseChange(day, exIndex, 'techniqueVideo', base64)}
-                        onRemove={() => handleExerciseChange(day, exIndex, 'techniqueVideo', '')}
+                        onChange={(e) => handleExerciseChange(day, exIndex, 'techniqueVideo', e.target.value)}
+                        placeholder="https://www.youtube.com/watch?v=..."
+                        className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:bg-white/10"
                       />
                     </div>
 
@@ -434,6 +437,6 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 }

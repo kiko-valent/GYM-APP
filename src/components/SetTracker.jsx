@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Info, Plus, Minus, ArrowLeft, Target, Calendar, Trophy, Timer } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Check, Info, Plus, Minus, ArrowLeft, Target, Calendar, Trophy, Timer, Video as VideoIcon, Video } from 'lucide-react';
+import { Button } from '@/components/ui/button.jsx';
 import { getPreviousWorkout } from '@/utils/workoutData';
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog.jsx";
 
-const timerOptions = [60, 90, 120, 150, 180];
+const getYouTubeId = (url) => {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2]) ? match[2] : null;
+};
 
 export default function SetTracker({
   exercise,
@@ -36,6 +45,9 @@ export default function SetTracker({
   const [previousData, setPreviousData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Video State
+  const [showVideoModal, setShowVideoModal] = useState(false);
+
   // Goal Achievement State
   const [showGoalCelebration, setShowGoalCelebration] = useState(false);
   const [goalAchievedData, setGoalAchievedData] = useState(null);
@@ -50,7 +62,8 @@ export default function SetTracker({
     if (onSetProgress) {
       onSetProgress(completedSets);
     }
-  }, [completedSets, onSetProgress]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completedSets]);
 
   useEffect(() => {
     const fetchPreviousData = async () => {
@@ -346,6 +359,17 @@ export default function SetTracker({
                 <p className="text-secondary text-sm">Set {currentSet + 1} • {exercise.reps} Reps • {weight}kg</p>
               </div>
             </div>
+            {exercise.techniqueVideo && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowVideoModal(true)}
+                className="w-full mt-3 text-cyan border border-cyan/30 hover:bg-cyan/10"
+              >
+                <Video className="w-4 h-4 mr-2" />
+                Consultar Video
+              </Button>
+            )}
           </div>
 
           {/* Resume Button */}
@@ -370,15 +394,27 @@ export default function SetTracker({
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-2xl font-bold text-white italic">{exercise.name.toUpperCase()}</h1>
-              <div className="flex items-center gap-3 mt-2">
-                <span className="bg-dark-card-lighter px-3 py-1 rounded-lg text-sm font-semibold text-white">
-                  SET {currentSet}
-                </span>
-                <span className="text-secondary">of {totalSets}</span>
-                {!loading && previousData && (
-                  <span className="text-secondary text-sm">
-                    Last: {previousData.weight}kg × {previousData.reps}
+              <div className="flex flex-col gap-2 mt-2">
+                <div className="flex items-center gap-3">
+                  <span className="bg-dark-card-lighter px-3 py-1 rounded-lg text-sm font-semibold text-white">
+                    SET {currentSet}
                   </span>
+                  <span className="text-secondary">of {totalSets}</span>
+                  {!loading && previousData && (
+                    <span className="text-secondary text-sm">
+                      Last: {previousData.weight}kg × {previousData.reps}
+                    </span>
+                  )}
+                </div>
+                {exercise.techniqueVideo && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => setShowVideoModal(true)}
+                    className="text-cyan p-0 h-auto font-normal justify-start"
+                  >
+                    <VideoIcon className="w-4 h-4 mr-2" /> Consultar ejercicio
+                  </Button>
                 )}
               </div>
             </div>
@@ -528,16 +564,37 @@ export default function SetTracker({
               <div
                 key={i}
                 className={`w-3 h-3 rounded-full transition-all ${i < currentSet - 1
-                    ? 'bg-lime'
-                    : i === currentSet - 1
-                      ? 'bg-cyan'
-                      : 'bg-dark-card-lighter'
+                  ? 'bg-lime'
+                  : i === currentSet - 1
+                    ? 'bg-cyan'
+                    : 'bg-dark-card-lighter'
                   }`}
               />
             ))}
           </div>
         </motion.div>
       )}
+
+      {/* Video Modal */}
+      <Dialog open={showVideoModal} onOpenChange={setShowVideoModal}>
+        <DialogContent className="bg-black border-white/10 sm:max-w-2xl p-0 overflow-hidden">
+          {exercise.techniqueVideo ? (
+            <div className="aspect-video w-full">
+              <iframe
+                width="100%"
+                height="100%"
+                src={`https://www.youtube.com/embed/${getYouTubeId(exercise.techniqueVideo)}`}
+                title="YouTube video player"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+          ) : (
+            <div className="p-8 text-center text-white">Video no disponible</div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AnimatePresence>
   );
 }

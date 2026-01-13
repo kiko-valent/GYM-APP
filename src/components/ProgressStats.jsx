@@ -45,16 +45,16 @@ export default function ProgressStats({ history }) {
   const stats = [
     {
       icon: Dumbbell,
-      label: 'WORKOUTS',
+      label: 'ENTRENAMIENTOS',
       value: totalWorkouts,
       bgColor: 'bg-dark-card-lighter',
       iconColor: 'text-cyan'
     },
     {
       icon: Flame,
-      label: 'STREAK',
+      label: 'RACHA',
       value: calculateStreak(),
-      suffix: 'Days',
+      suffix: 'Días',
       bgColor: 'bg-dark-card-lighter',
       iconColor: 'text-cyan'
     },
