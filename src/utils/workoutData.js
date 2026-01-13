@@ -374,3 +374,126 @@ export function clearWorkoutProgress(userId, day) {
     console.error('Failed to clear workout progress from localStorage:', e);
   }
 }
+
+// ==========================================
+// In-Progress Workout Persistence (Supabase)
+// ==========================================
+
+/**
+ * Get today's date in YYYY-MM-DD format for the user's timezone
+ */
+const getTodayDate = () => {
+  const now = new Date();
+  return now.toISOString().split('T')[0];
+};
+
+/**
+ * Save exercise progress to Supabase (called on each set confirmation).
+ * Uses upsert to handle both insert and update cases.
+ * @param {string} userId
+ * @param {string} day - e.g., 'lunes'
+ * @param {number} exerciseIndex
+ * @param {string} exerciseName
+ * @param {Array} setsData - Array of set objects
+ * @param {boolean} completed - Whether exercise is fully completed
+ * @returns {Promise<{error: Error|null}>}
+ */
+export async function saveExerciseProgressToSupabase(userId, day, exerciseIndex, exerciseName, setsData, completed) {
+  try {
+    const { error } = await supabase
+      .from('workout_progress')
+      .upsert({
+        user_id: userId,
+        day: day,
+        workout_date: getTodayDate(),
+        exercise_index: exerciseIndex,
+        exercise_name: exerciseName,
+        sets_data: setsData,
+        completed: completed,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id,day,workout_date,exercise_index'
+      });
+
+    if (error) {
+      handleSupabaseError(error, 'saveExerciseProgressToSupabase');
+      return { error };
+    }
+
+    console.log('[SUPABASE] Saved exercise progress:', { exerciseIndex, exerciseName, setsCount: setsData.length, completed });
+    return { error: null };
+  } catch (e) {
+    handleSupabaseError(e, 'saveExerciseProgressToSupabase (unexpected)');
+    return { error: e };
+  }
+}
+
+/**
+ * Load all exercise progress from Supabase for today's workout.
+ * @param {string} userId
+ * @param {string} day - e.g., 'lunes'
+ * @returns {Promise<{exercisesState: Object, error: Error|null}>}
+ */
+export async function loadWorkoutProgressFromSupabase(userId, day) {
+  try {
+    const { data, error } = await supabase
+      .from('workout_progress')
+      .select('exercise_index, exercise_name, sets_data, completed')
+      .eq('user_id', userId)
+      .eq('day', day)
+      .eq('workout_date', getTodayDate());
+
+    if (error) {
+      handleSupabaseError(error, 'loadWorkoutProgressFromSupabase');
+      return { exercisesState: null, error };
+    }
+
+    if (!data || data.length === 0) {
+      console.log('[SUPABASE] No saved progress found for today');
+      return { exercisesState: null, error: null };
+    }
+
+    // Convert array to exercisesState object format
+    const exercisesState = {};
+    data.forEach(row => {
+      exercisesState[row.exercise_index] = {
+        sets: row.sets_data || [],
+        completed: row.completed || false
+      };
+    });
+
+    console.log('[SUPABASE] Loaded progress:', exercisesState);
+    return { exercisesState, error: null };
+  } catch (e) {
+    handleSupabaseError(e, 'loadWorkoutProgressFromSupabase (unexpected)');
+    return { exercisesState: null, error: e };
+  }
+}
+
+/**
+ * Clear all progress for today's workout from Supabase (call after final save).
+ * @param {string} userId
+ * @param {string} day
+ * @returns {Promise<{error: Error|null}>}
+ */
+export async function clearWorkoutProgressFromSupabase(userId, day) {
+  try {
+    const { error } = await supabase
+      .from('workout_progress')
+      .delete()
+      .eq('user_id', userId)
+      .eq('day', day)
+      .eq('workout_date', getTodayDate());
+
+    if (error) {
+      handleSupabaseError(error, 'clearWorkoutProgressFromSupabase');
+      return { error };
+    }
+
+    console.log('[SUPABASE] Cleared workout progress for', day);
+    return { error: null };
+  } catch (e) {
+    handleSupabaseError(e, 'clearWorkoutProgressFromSupabase (unexpected)');
+    return { error: e };
+  }
+}

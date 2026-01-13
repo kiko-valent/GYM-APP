@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { getWorkoutPlanForDay, saveWorkoutSession, getUserPlan, saveWorkoutProgress, loadWorkoutProgress, clearWorkoutProgress } from '@/utils/workoutData';
+import { getWorkoutPlanForDay, saveWorkoutSession, getUserPlan, saveWorkoutProgress, loadWorkoutProgress, clearWorkoutProgress, saveExerciseProgressToSupabase, loadWorkoutProgressFromSupabase, clearWorkoutProgressFromSupabase } from '@/utils/workoutData';
 import SetTracker from '@/components/SetTracker';
 import ExerciseNavChips from '@/components/ExerciseNavChips';
 import WorkoutEvaluation from '@/components/WorkoutEvaluation';
@@ -59,24 +59,42 @@ export default function WorkoutPage() {
     return () => { isMounted = false; };
   }, [user, day]);
 
-  // Load saved progress from localStorage on mount
+  // Load saved progress from Supabase (primary) with localStorage fallback
   useEffect(() => {
     if (!user || !day || !plan?.exercises) return;
-    const saved = loadWorkoutProgress(user.id, day);
-    console.log('[PERSISTENCE] Loaded from localStorage:', saved);
-    if (saved && saved.exercisesState) {
-      // Validate saved state matches current plan
-      const savedExerciseCount = Object.keys(saved.exercisesState).length;
-      if (savedExerciseCount === plan.exercises.length) {
-        console.log('[PERSISTENCE] Restoring state:', saved.exercisesState);
-        setExercisesState(saved.exercisesState);
-        // Find first incomplete exercise or use saved index
-        const firstIncomplete = plan.exercises.findIndex((_, idx) => !saved.exercisesState[idx]?.completed);
-        setCurrentExerciseIndex(firstIncomplete !== -1 ? firstIncomplete : saved.currentExerciseIndex || 0);
+
+    const loadProgress = async () => {
+      // Try Supabase first
+      const { exercisesState: supabaseState, error } = await loadWorkoutProgressFromSupabase(user.id, day);
+
+      if (supabaseState && Object.keys(supabaseState).length > 0) {
+        console.log('[PERSISTENCE] Loaded from Supabase:', supabaseState);
+        // Merge with initial state to ensure all exercises have entries
+        const mergedState = { ...exercisesState };
+        Object.keys(supabaseState).forEach(idx => {
+          mergedState[idx] = supabaseState[idx];
+        });
+        setExercisesState(mergedState);
+        const firstIncomplete = plan.exercises.findIndex((_, idx) => !supabaseState[idx]?.completed);
+        setCurrentExerciseIndex(firstIncomplete !== -1 ? firstIncomplete : 0);
+      } else {
+        // Fallback to localStorage
+        const saved = loadWorkoutProgress(user.id, day);
+        console.log('[PERSISTENCE] Fallback to localStorage:', saved);
+        if (saved && saved.exercisesState) {
+          const savedExerciseCount = Object.keys(saved.exercisesState).length;
+          if (savedExerciseCount === plan.exercises.length) {
+            setExercisesState(saved.exercisesState);
+            const firstIncomplete = plan.exercises.findIndex((_, idx) => !saved.exercisesState[idx]?.completed);
+            setCurrentExerciseIndex(firstIncomplete !== -1 ? firstIncomplete : saved.currentExerciseIndex || 0);
+          }
+        }
       }
-    }
-    // Mark as initialized after attempting to load (even if no saved data)
-    isInitializedRef.current = true;
+
+      isInitializedRef.current = true;
+    };
+
+    loadProgress();
   }, [user, day, plan]);
 
   const saveCurrentExerciseProgress = useCallback((sets, completed = false) => {
@@ -108,9 +126,21 @@ export default function WorkoutPage() {
       [currentExerciseIndex]: { sets: exerciseData.sets, completed: true }
     };
 
-    // Persist to localStorage immediately (only if initialized)
+    // Persist to both localStorage and Supabase
     if (isInitializedRef.current) {
+      const exerciseName = plan.exercises[currentExerciseIndex]?.name || '';
       saveWorkoutProgress(user.id, day, updatedState, currentExerciseIndex);
+      // Save to Supabase (async, fire-and-forget with error handling)
+      saveExerciseProgressToSupabase(user.id, day, currentExerciseIndex, exerciseName, exerciseData.sets, true)
+        .then(({ error }) => {
+          if (error) {
+            toast({
+              variant: 'destructive',
+              title: 'Error guardando progreso',
+              description: 'No se pudo sincronizar con el servidor. Tu progreso está guardado localmente.',
+            });
+          }
+        });
     }
 
     const allCompleted = plan.exercises.every((_, idx) => updatedState[idx]?.completed);
@@ -137,7 +167,7 @@ export default function WorkoutPage() {
 
   const handleSetProgress = (sets) => {
     saveCurrentExerciseProgress(sets, false);
-    // Also persist partial progress to localStorage (only if initialized)
+    // Persist to both localStorage and Supabase
     if (isInitializedRef.current && sets && sets.length > 0) {
       const updatedState = {
         ...exercisesState,
@@ -145,6 +175,9 @@ export default function WorkoutPage() {
       };
       console.log('[PERSISTENCE] Saving set progress:', { currentExerciseIndex, sets, updatedState });
       saveWorkoutProgress(user.id, day, updatedState, currentExerciseIndex);
+      // Save to Supabase (async)
+      const exerciseName = plan.exercises[currentExerciseIndex]?.name || '';
+      saveExerciseProgressToSupabase(user.id, day, currentExerciseIndex, exerciseName, sets, false);
     }
   };
 
@@ -172,8 +205,9 @@ export default function WorkoutPage() {
 
     await saveWorkoutSession(user.id, sessionData);
 
-    // Clear localStorage progress after successful final save
+    // Clear progress from both localStorage and Supabase
     clearWorkoutProgress(user.id, day);
+    await clearWorkoutProgressFromSupabase(user.id, day);
 
     toast({
       title: "¡Entrenamiento guardado! 🎉",
