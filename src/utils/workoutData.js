@@ -315,3 +315,62 @@ export async function uploadTechniqueVideo(userId, exerciseName, file) {
     return { error: e };
   }
 }
+
+// ==========================================
+// In-Progress Workout Persistence (localStorage)
+// ==========================================
+
+const getProgressKey = (userId, day) => `workout_progress_${userId}_${day}`;
+
+/**
+ * Save current workout progress to localStorage.
+ * @param {string} userId
+ * @param {string} day - e.g., 'lunes'
+ * @param {Object} exercisesState - { 0: { sets: [...], completed: true }, ... }
+ * @param {number} currentExerciseIndex
+ */
+export function saveWorkoutProgress(userId, day, exercisesState, currentExerciseIndex) {
+  try {
+    const key = getProgressKey(userId, day);
+    const data = {
+      exercisesState,
+      currentExerciseIndex,
+      savedAt: new Date().toISOString()
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.error('Failed to save workout progress to localStorage:', e);
+  }
+}
+
+/**
+ * Load saved workout progress from localStorage.
+ * @param {string} userId
+ * @param {string} day
+ * @returns {{ exercisesState: Object, currentExerciseIndex: number, savedAt: string } | null}
+ */
+export function loadWorkoutProgress(userId, day) {
+  try {
+    const key = getProgressKey(userId, day);
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load workout progress from localStorage:', e);
+    return null;
+  }
+}
+
+/**
+ * Clear saved workout progress from localStorage (call after final save).
+ * @param {string} userId
+ * @param {string} day
+ */
+export function clearWorkoutProgress(userId, day) {
+  try {
+    const key = getProgressKey(userId, day);
+    localStorage.removeItem(key);
+  } catch (e) {
+    console.error('Failed to clear workout progress from localStorage:', e);
+  }
+}
