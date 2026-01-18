@@ -1,18 +1,64 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { TrendingUp, LogOut, Dumbbell, Settings, User, Bell, Utensils } from 'lucide-react';
+import { LogOut, Settings, User, Utensils, Play, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useToast } from '@/components/ui/use-toast';
 import WeeklyPlan from '@/components/WeeklyPlan';
+import { getUserPlan } from '@/utils/workoutData';
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [todayRoutine, setTodayRoutine] = useState(null);
+  const [isLoadingPlan, setIsLoadingPlan] = useState(true);
+
+  // Get today's day name in Spanish (lowercase)
+  const todayName = new Date().toLocaleDateString('es-ES', { weekday: 'long' }).toLowerCase();
+
+  // Fetch user plan on mount to check if today is a training day
+  useEffect(() => {
+    const checkTodayRoutine = async () => {
+      if (user) {
+        const plan = await getUserPlan(user.id);
+        if (plan.training_days?.includes(todayName)) {
+          setTodayRoutine(todayName);
+        } else {
+          setTodayRoutine(null);
+        }
+        setIsLoadingPlan(false);
+      }
+    };
+    checkTodayRoutine();
+  }, [user, todayName]);
 
   const handleLogout = async () => {
     await signOut();
     navigate('/login');
+  };
+
+  // Quick Start FAB handler
+  const handleQuickStart = () => {
+    if (todayRoutine) {
+      navigate(`/workout/${todayRoutine}`);
+    } else {
+      toast({
+        title: "Día de descanso 🧘",
+        description: "No hay rutina programada hoy. ¿Quieres entrenar de todos modos?",
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/settings')}
+            className="bg-lime text-dark-bg hover:bg-lime/90"
+          >
+            Ver Rutinas
+          </Button>
+        ),
+      });
+    }
   };
 
   return (
@@ -44,77 +90,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button className="relative p-2 rounded-full hover:bg-dark-card transition-colors">
-              <Bell className="w-5 h-5 text-white" />
-              <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan rounded-full" />
-            </button>
-          </div>
+
         </motion.div>
 
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-2 gap-4 mb-8">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            onClick={() => navigate('/progress')}
-            className="card-dark p-5 cursor-pointer hover:bg-dark-card-lighter transition-all"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="bg-cyan/20 p-2 rounded-lg">
-                    <TrendingUp className="w-5 h-5 text-cyan" />
-                  </div>
-                  <span className="bg-lime/20 text-lime text-xs font-semibold px-2 py-0.5 rounded-full">
-                    +15%
-                  </span>
-                </div>
-                <p className="text-secondary text-sm mb-1">Volumen Semanal</p>
-                <p className="text-3xl font-bold text-white">12.450<span className="text-lg text-secondary ml-1">kg</span></p>
-              </div>
-              {/* Mini Chart Placeholder */}
-              <div className="w-24 h-12 flex items-end gap-0.5">
-                {[40, 55, 45, 60, 75, 65, 80].map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 bg-gradient-to-t from-cyan/50 to-cyan rounded-t"
-                    style={{ height: `${h}%` }}
-                  />
-                ))}
-              </div>
-            </div>
-          </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            onClick={() => navigate('/settings')}
-            className="card-dark p-5 cursor-pointer hover:bg-dark-card-lighter transition-all"
-          >
-            <div className="flex items-start gap-4">
-              <div className="bg-lime/20 p-2.5 rounded-lg shrink-0">
-                <Dumbbell className="w-5 h-5 text-lime" />
-              </div>
-              <div>
-                <p className="text-secondary text-sm mb-1">Objetivo de Hoy</p>
-                <h3 className="text-xl font-bold text-white leading-tight">
-                  Hipertrofia<br />Torso
-                </h3>
-                <button className="mt-3 flex items-center gap-2 bg-dark-card-lighter hover:bg-dark-border px-4 py-2 rounded-full text-sm font-medium text-white transition-colors">
-                  Empezar
-                  <span className="bg-white/20 rounded-full p-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </span>
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </div>
 
         {/* Nutrition Card */}
         <motion.div
@@ -168,12 +147,15 @@ export default function DashboardPage() {
               <span className="text-xs">Progreso</span>
             </button>
 
-            {/* FAB Button */}
+            {/* FAB Button - Quick Start */}
             <div className="-mt-8">
-              <button className="w-14 h-14 bg-lime rounded-full flex items-center justify-center shadow-lime-glow">
-                <svg className="w-7 h-7 text-dark-bg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                </svg>
+              <button
+                onClick={handleQuickStart}
+                disabled={isLoadingPlan}
+                className="w-14 h-14 bg-lime rounded-full flex items-center justify-center shadow-lime-glow hover:scale-105 active:scale-95 transition-transform disabled:opacity-50"
+                title={todayRoutine ? `Entrenar ${todayRoutine}` : "Día de descanso"}
+              >
+                <Play className="w-7 h-7 text-dark-bg ml-0.5" fill="currentColor" />
               </button>
             </div>
 
