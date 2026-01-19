@@ -5,7 +5,6 @@ import { ArrowLeft, MoreHorizontal } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { getWorkoutHistory, deleteWorkoutSession } from '@/utils/workoutData';
 import { useToast } from '@/components/ui/use-toast';
-import ProgressChart from '@/components/ProgressChart';
 import ProgressStats from '@/components/ProgressStats';
 import WorkoutHistoryList from '@/components/WorkoutHistoryList';
 
@@ -88,9 +87,7 @@ export default function ProgressPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            <ProgressStats history={history} />
-
-            <ProgressChart history={history} />
+            <ProgressStats history={history} userId={user?.id} />
 
             <WorkoutHistoryList history={history} onDelete={handleDeleteSession} />
           </div>

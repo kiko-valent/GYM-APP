@@ -1,44 +1,71 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Dumbbell, Flame, Award, TrendingUp } from 'lucide-react';
+import { Dumbbell, Flame } from 'lucide-react';
+import { getUserPlan } from '@/utils/workoutData';
 
-export default function ProgressStats({ history }) {
+export default function ProgressStats({ history, userId }) {
+  const [trainingDays, setTrainingDays] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const totalWorkouts = history.length;
-  const thisWeek = history.filter(w => {
-    const date = new Date(w.date);
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return date >= weekAgo;
-  }).length;
 
-  const avgFeeling = history.length > 0
-    ? (history.reduce((sum, w) => sum + (w.evaluation?.feeling || 0), 0) / history.length).toFixed(1)
-    : 0;
+  // Fetch training days from user plan
+  useEffect(() => {
+    const fetchPlan = async () => {
+      if (userId) {
+        const plan = await getUserPlan(userId);
+        setTrainingDays(plan.training_days || []);
+      }
+      setLoading(false);
+    };
+    fetchPlan();
+  }, [userId]);
 
-  // Calculate streak
+  // New Adherence-Based Streak Logic
+  // Only counts consecutive SCHEDULED training days that were completed
+  // Rest days do not break the streak
   const calculateStreak = () => {
-    if (history.length === 0) return 0;
-    const sortedDates = history
-      .map(w => new Date(w.date).toDateString())
-      .filter((date, i, arr) => arr.indexOf(date) === i)
-      .sort((a, b) => new Date(b) - new Date(a));
+    if (history.length === 0 || trainingDays.length === 0) return 0;
+
+    // Get unique workout dates
+    const workoutDates = new Set(
+      history.map(w => new Date(w.date).toDateString())
+    );
+
+    // Spanish day names mapping
+    const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
     let streak = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    for (let i = 0; i < sortedDates.length; i++) {
+    // Iterate backwards from today
+    for (let i = 0; i < 365; i++) { // Max 1 year lookback
       const checkDate = new Date(today);
       checkDate.setDate(checkDate.getDate() - i);
-      if (sortedDates.includes(checkDate.toDateString())) {
-        streak++;
-      } else if (i === 0) {
-        // If today wasn't a workout, check yesterday
-        continue;
-      } else {
-        break;
+      const dayName = dayNames[checkDate.getDay()];
+
+      // Check if this day was a scheduled training day
+      const isScheduledDay = trainingDays.includes(dayName);
+
+      if (isScheduledDay) {
+        // It's a scheduled day - check if workout was completed
+        const wasCompleted = workoutDates.has(checkDate.toDateString());
+
+        if (wasCompleted) {
+          streak++;
+        } else {
+          // Missed a scheduled day - streak breaks
+          // But only if it's in the past (not today)
+          if (i > 0) {
+            break;
+          }
+          // If today is scheduled but not done yet, continue checking
+        }
       }
+      // If not a scheduled day (rest day), continue without breaking streak
     }
+
     return streak;
   };
 
@@ -53,7 +80,7 @@ export default function ProgressStats({ history }) {
     {
       icon: Flame,
       label: 'RACHA',
-      value: calculateStreak(),
+      value: loading ? '...' : calculateStreak(),
       suffix: 'Días',
       bgColor: 'bg-dark-card-lighter',
       iconColor: 'text-cyan'

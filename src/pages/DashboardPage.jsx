@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { LogOut, Settings, User, Utensils, Play, TrendingUp } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LogOut, Settings, User, Utensils, Play, TrendingUp, Scale, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import WeeklyPlan from '@/components/WeeklyPlan';
 import { getUserPlan } from '@/utils/workoutData';
+import { supabase } from '@/lib/customSupabaseClient';
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
@@ -14,6 +15,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [todayRoutine, setTodayRoutine] = useState(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState(true);
+  const [showWeightModal, setShowWeightModal] = useState(false);
 
   // Get today's day name in Spanish (lowercase)
   const todayName = new Date().toLocaleDateString('es-ES', { weekday: 'long' }).toLowerCase();
@@ -33,6 +35,27 @@ export default function DashboardPage() {
     };
     checkTodayRoutine();
   }, [user, todayName]);
+
+  // Check if weight was recorded today
+  useEffect(() => {
+    const checkTodayWeight = async () => {
+      if (!user) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('weight_history')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('date', today)
+        .maybeSingle();
+
+      if (!error && !data) {
+        // No weight recorded today - show modal
+        setShowWeightModal(true);
+      }
+    };
+    checkTodayWeight();
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut();
@@ -64,6 +87,60 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen p-4 md:p-8 bg-dark-bg">
       <div className="max-w-6xl mx-auto">
+        {/* Morning Weight Modal */}
+        <AnimatePresence>
+          {showWeightModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowWeightModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="card-dark p-6 max-w-sm w-full relative"
+                onClick={e => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setShowWeightModal(false)}
+                  className="absolute top-4 right-4 text-secondary hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="text-center">
+                  <div className="bg-lime/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Scale className="w-8 h-8 text-lime" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">¡Buenos días! ☀️</h3>
+                  <p className="text-secondary mb-6">
+                    Recuerda pesarte en ayunas para un seguimiento preciso de tu progreso.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setShowWeightModal(false);
+                      navigate('/profile');
+                    }}
+                    className="w-full btn-lime py-4"
+                  >
+                    <Scale className="w-5 h-5 mr-2" />
+                    Ir a anotar peso
+                  </Button>
+                  <button
+                    onClick={() => setShowWeightModal(false)}
+                    className="mt-3 text-secondary text-sm hover:text-white"
+                  >
+                    Más tarde
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}

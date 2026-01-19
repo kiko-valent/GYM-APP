@@ -15,7 +15,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  
+
   const [profile, setProfile] = useState({ full_name: '', age: '', physical_goal: '', current_weight: '' });
   const [nutrition, setNutrition] = useState({ fat_g: '', carbs_g: '', protein_g: '', calories_kcal: '' });
   const [newWeight, setNewWeight] = useState('');
@@ -26,7 +26,7 @@ export default function ProfilePage() {
     const fetchData = async () => {
       if (!user) return;
       setLoading(true);
-      
+
       // Fetch Profile
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
@@ -46,7 +46,7 @@ export default function ProfilePage() {
         .maybeSingle();
       if (nutritionData) setNutrition(nutritionData);
       if (nutritionError && nutritionError.code !== 'PGRST116') console.error('Nutrition error:', nutritionError);
-      
+
       // Fetch Weight History
       const { data: weightData, error: weightError } = await supabase
         .from('weight_history')
@@ -74,16 +74,43 @@ export default function ProfilePage() {
     if (!user) return;
     setLoading(true);
 
+    // Prepare profile payload with proper data types
+    const profilePayload = {
+      id: user.id,
+      full_name: profile.full_name || null,
+      age: profile.age ? parseInt(profile.age, 10) : null,
+      current_weight: profile.current_weight ? parseFloat(profile.current_weight) : null,
+      physical_goal: profile.physical_goal || null,
+    };
+
     // Upsert Profile
     const { error: profileError } = await supabase
       .from('user_profiles')
-      .upsert({ ...profile, id: user.id });
+      .upsert(profilePayload);
+
+    if (profileError) {
+      console.error('Profile save error:', profileError);
+    }
+
+    // Prepare nutrition payload with proper data types
+    const today = new Date().toISOString().split('T')[0];
+    const nutritionPayload = {
+      user_id: user.id,
+      date: today,
+      calories_kcal: nutrition.calories_kcal ? parseInt(nutrition.calories_kcal, 10) : null,
+      protein_g: nutrition.protein_g ? parseFloat(nutrition.protein_g) : null,
+      carbs_g: nutrition.carbs_g ? parseFloat(nutrition.carbs_g) : null,
+      fat_g: nutrition.fat_g ? parseFloat(nutrition.fat_g) : null,
+    };
 
     // Upsert Nutrition
-    const today = new Date().toISOString().split('T')[0];
     const { error: nutritionError } = await supabase
       .from('user_nutrition')
-      .upsert({ ...nutrition, user_id: user.id, date: today }, { onConflict: 'user_id,date' });
+      .upsert(nutritionPayload, { onConflict: 'user_id,date' });
+
+    if (nutritionError) {
+      console.error('Nutrition save error:', nutritionError);
+    }
 
     if (profileError || nutritionError) {
       toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los datos." });
@@ -92,14 +119,14 @@ export default function ProfilePage() {
     }
     setLoading(false);
   };
-  
+
   const handleAddWeight = async () => {
     if (!user || !newWeight) return;
     const today = new Date().toISOString().split('T')[0];
     const { error } = await supabase
       .from('weight_history')
       .insert({ user_id: user.id, weight: newWeight, date: today });
-    
+
     if (!error) {
       const { error: profileUpdateError } = await supabase
         .from('user_profiles')
