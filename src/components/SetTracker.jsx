@@ -1,19 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Info, Plus, Minus, ArrowLeft, Target, Calendar, Trophy, Timer, Video as VideoIcon, Video } from 'lucide-react';
+import { Check, Info, Plus, Minus, ArrowLeft, Target, Calendar, Trophy, Timer, Video as VideoIcon, Video, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button.jsx';
 import { getPreviousWorkout } from '@/utils/workoutData';
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog.jsx";
-
-const getYouTubeId = (url) => {
-  if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2]) ? match[2] : null;
-};
+import { useToast } from '@/components/ui/use-toast';
 
 export default function SetTracker({
   exercise,
@@ -44,9 +34,7 @@ export default function SetTracker({
 
   const [previousData, setPreviousData] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Video State
-  const [showVideoModal, setShowVideoModal] = useState(false);
+  const { toast } = useToast();
 
   // Goal Achievement State
   const [showGoalCelebration, setShowGoalCelebration] = useState(false);
@@ -224,6 +212,20 @@ export default function SetTracker({
     setCompletedSets(newCompletedSets);
   };
 
+  // Open video externally in YouTube app or browser
+  const handleOpenVideo = () => {
+    if (!exercise.techniqueVideo) {
+      toast({
+        variant: "destructive",
+        title: "Sin vídeo",
+        description: "No hay vídeo configurado para este ejercicio."
+      });
+      return;
+    }
+    // Open in new tab - on mobile this will open YouTube app if installed
+    window.open(exercise.techniqueVideo, '_blank', 'noopener,noreferrer');
+  };
+
   const isLastSet = currentSet === totalSets;
   const progress = ((restDuration - timeLeft) / restDuration) * 100;
   const minutes = Math.floor(timeLeft / 60);
@@ -359,17 +361,16 @@ export default function SetTracker({
                 <p className="text-secondary text-sm">Set {currentSet + 1} • {exercise.reps} Reps • {weight}kg</p>
               </div>
             </div>
-            {exercise.techniqueVideo && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowVideoModal(true)}
-                className="w-full mt-3 text-cyan border border-cyan/30 hover:bg-cyan/10"
-              >
-                <Video className="w-4 h-4 mr-2" />
-                Consultar Video
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenVideo}
+              disabled={!exercise.techniqueVideo}
+              className="w-full mt-3 text-cyan border border-cyan/30 hover:bg-cyan/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              {exercise.techniqueVideo ? 'Ver en YouTube' : 'Sin vídeo'}
+            </Button>
           </div>
 
           {/* Resume Button */}
@@ -406,16 +407,15 @@ export default function SetTracker({
                     </span>
                   )}
                 </div>
-                {exercise.techniqueVideo && (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => setShowVideoModal(true)}
-                    className="text-cyan p-0 h-auto font-normal justify-start"
-                  >
-                    <VideoIcon className="w-4 h-4 mr-2" /> Consultar ejercicio
-                  </Button>
-                )}
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={handleOpenVideo}
+                  disabled={!exercise.techniqueVideo}
+                  className="text-cyan p-0 h-auto font-normal justify-start disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" /> {exercise.techniqueVideo ? 'Consultar ejercicio' : 'Sin vídeo'}
+                </Button>
               </div>
             </div>
             <div className="bg-dark-card-lighter p-2 rounded-full">
@@ -575,26 +575,7 @@ export default function SetTracker({
         </motion.div>
       )}
 
-      {/* Video Modal */}
-      <Dialog open={showVideoModal} onOpenChange={setShowVideoModal}>
-        <DialogContent className="bg-black border-white/10 sm:max-w-2xl p-0 overflow-hidden">
-          {exercise.techniqueVideo ? (
-            <div className="aspect-video w-full">
-              <iframe
-                width="100%"
-                height="100%"
-                src={`https://www.youtube.com/embed/${getYouTubeId(exercise.techniqueVideo)}`}
-                title="YouTube video player"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              ></iframe>
-            </div>
-          ) : (
-            <div className="p-8 text-center text-white">Video no disponible</div>
-          )}
-        </DialogContent>
-      </Dialog>
+
     </AnimatePresence>
   );
 }
