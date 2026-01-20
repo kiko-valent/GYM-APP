@@ -196,6 +196,16 @@ export default function WorkoutPage() {
       })
       .filter(Boolean);
 
+    // Validar que hay ejercicios completados
+    if (completedExercises.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Sin ejercicios',
+        description: 'No hay ejercicios completados para guardar.',
+      });
+      return;
+    }
+
     const sessionData = {
       day,
       date: new Date().toISOString(),
@@ -203,7 +213,17 @@ export default function WorkoutPage() {
       evaluation
     };
 
-    await saveWorkoutSession(user.id, sessionData);
+    const { error } = await saveWorkoutSession(user.id, sessionData);
+
+    if (error) {
+      console.error('[WORKOUT] Error guardando sesión:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error al guardar',
+        description: 'No se pudo guardar el entrenamiento. Tu progreso sigue guardado localmente. Intenta de nuevo.',
+      });
+      return; // NO limpiar progreso, NO navegar
+    }
 
     // Clear progress from both localStorage and Supabase
     clearWorkoutProgress(user.id, day);
