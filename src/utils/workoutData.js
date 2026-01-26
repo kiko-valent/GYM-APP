@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/customSupabaseClient';
+import { logError } from '@/utils/errorLogger';
 
 const defaultPlan = {
   training_days: ['lunes', 'martes', 'jueves', 'viernes'],
@@ -15,8 +16,9 @@ const defaultPlan = {
   }
 };
 
-const handleSupabaseError = (error, context) => {
+const handleSupabaseError = (error, context, metadata = null) => {
   console.error(`Error in ${context}:`, error);
+  logError(context, error, metadata);
   return error;
 };
 

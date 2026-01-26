@@ -12,6 +12,7 @@ import SettingsPage from '@/pages/SettingsPage';
 import ProfilePage from '@/pages/ProfilePage';
 import CalorieCalculatorPage from '@/pages/CalorieCalculatorPage';
 import NutritionPage from '@/pages/NutritionPage';
+import ErrorNotification from '@/components/ErrorNotification';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -59,6 +60,7 @@ function App() {
             <Route path="/" element={<Navigate to="/login" />} />
           </Routes>
           <Toaster />
+          <ErrorNotification />
         </div>
       </Router>
     </AuthProvider>
