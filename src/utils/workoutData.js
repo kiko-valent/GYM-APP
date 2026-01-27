@@ -129,14 +129,15 @@ export async function saveWorkoutSession(userId, session) {
     }
 
     // Prepare exercises with all details including RIR/RPE if available
+    // Ensure reps is integer and weight is rounded to integer (Supabase requires integer type)
     const exercisesToInsert = session.exercises.flatMap(exercise =>
       exercise.sets.map(set => ({
         session_id: sessionData.id,
         exercise_name: exercise.name,
-        reps: set.reps,
-        weight: set.weight,
-        rir: set.rir,
-        rpe: set.rpe
+        reps: parseInt(set.reps, 10) || 0,
+        weight: Math.round(parseFloat(set.weight) || 0),
+        rir: set.rir != null ? parseInt(set.rir, 10) : null,
+        rpe: set.rpe != null ? parseInt(set.rpe, 10) : null
       }))
     );
 
@@ -401,33 +402,54 @@ const getTodayDate = () => {
  * @returns {Promise<{error: Error|null}>}
  */
 export async function saveExerciseProgressToSupabase(userId, day, exerciseIndex, exerciseName, setsData, completed) {
-  try {
-    const { error } = await supabase
-      .from('workout_progress')
-      .upsert({
-        user_id: userId,
-        day: day,
-        workout_date: getTodayDate(),
-        exercise_index: exerciseIndex,
-        exercise_name: exerciseName,
-        sets_data: setsData,
-        completed: completed,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id,day,workout_date,exercise_index'
-      });
+  const maxRetries = 3;
+  let lastError = null;
 
-    if (error) {
-      handleSupabaseError(error, 'saveExerciseProgressToSupabase');
-      return { error };
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const { error } = await supabase
+        .from('workout_progress')
+        .upsert({
+          user_id: userId,
+          day: day,
+          workout_date: getTodayDate(),
+          exercise_index: exerciseIndex,
+          exercise_name: exerciseName,
+          sets_data: setsData,
+          completed: completed,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,day,workout_date,exercise_index'
+        });
+
+      if (error) {
+        lastError = error;
+        // Retry on transient errors (network issues, timeouts)
+        if (attempt < maxRetries) {
+          console.log(`[SUPABASE] Retry ${attempt}/${maxRetries} for saveExerciseProgressToSupabase`);
+          await new Promise(r => setTimeout(r, 500 * attempt)); // Exponential backoff
+          continue;
+        }
+        handleSupabaseError(error, 'saveExerciseProgressToSupabase');
+        return { error };
+      }
+
+      console.log('[SUPABASE] Saved exercise progress:', { exerciseIndex, exerciseName, setsCount: setsData.length, completed });
+      return { error: null };
+    } catch (e) {
+      lastError = e;
+      // Retry on network errors (TypeError: Load failed, etc.)
+      if (attempt < maxRetries) {
+        console.log(`[SUPABASE] Retry ${attempt}/${maxRetries} after error:`, e.message);
+        await new Promise(r => setTimeout(r, 500 * attempt));
+        continue;
+      }
+      handleSupabaseError(e, 'saveExerciseProgressToSupabase (unexpected)');
+      return { error: e };
     }
-
-    console.log('[SUPABASE] Saved exercise progress:', { exerciseIndex, exerciseName, setsCount: setsData.length, completed });
-    return { error: null };
-  } catch (e) {
-    handleSupabaseError(e, 'saveExerciseProgressToSupabase (unexpected)');
-    return { error: e };
   }
+
+  return { error: lastError };
 }
 
 /**
