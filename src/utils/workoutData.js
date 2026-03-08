@@ -386,8 +386,7 @@ export function clearWorkoutProgress(userId, day) {
  * Get today's date in YYYY-MM-DD format for the user's timezone
  */
 const getTodayDate = () => {
-  const now = new Date();
-  return now.toISOString().split('T')[0];
+  return new Date().toLocaleDateString('en-CA');
 };
 
 /**
@@ -426,7 +425,6 @@ export async function saveExerciseProgressToSupabase(userId, day, exerciseIndex,
         lastError = error;
         // Retry on transient errors (network issues, timeouts)
         if (attempt < maxRetries) {
-          console.log(`[SUPABASE] Retry ${attempt}/${maxRetries} for saveExerciseProgressToSupabase`);
           await new Promise(r => setTimeout(r, 500 * attempt)); // Exponential backoff
           continue;
         }
@@ -434,13 +432,11 @@ export async function saveExerciseProgressToSupabase(userId, day, exerciseIndex,
         return { error };
       }
 
-      console.log('[SUPABASE] Saved exercise progress:', { exerciseIndex, exerciseName, setsCount: setsData.length, completed });
       return { error: null };
     } catch (e) {
       lastError = e;
       // Retry on network errors (TypeError: Load failed, etc.)
       if (attempt < maxRetries) {
-        console.log(`[SUPABASE] Retry ${attempt}/${maxRetries} after error:`, e.message);
         await new Promise(r => setTimeout(r, 500 * attempt));
         continue;
       }
@@ -473,7 +469,6 @@ export async function loadWorkoutProgressFromSupabase(userId, day) {
     }
 
     if (!data || data.length === 0) {
-      console.log('[SUPABASE] No saved progress found for today');
       return { exercisesState: null, error: null };
     }
 
@@ -486,7 +481,6 @@ export async function loadWorkoutProgressFromSupabase(userId, day) {
       };
     });
 
-    console.log('[SUPABASE] Loaded progress:', exercisesState);
     return { exercisesState, error: null };
   } catch (e) {
     handleSupabaseError(e, 'loadWorkoutProgressFromSupabase (unexpected)');
@@ -514,7 +508,6 @@ export async function clearWorkoutProgressFromSupabase(userId, day) {
       return { error };
     }
 
-    console.log('[SUPABASE] Cleared workout progress for', day);
     return { error: null };
   } catch (e) {
     handleSupabaseError(e, 'clearWorkoutProgressFromSupabase (unexpected)');

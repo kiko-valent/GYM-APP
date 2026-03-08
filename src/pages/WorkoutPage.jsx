@@ -68,7 +68,6 @@ export default function WorkoutPage() {
       const { exercisesState: supabaseState, error } = await loadWorkoutProgressFromSupabase(user.id, day);
 
       if (supabaseState && Object.keys(supabaseState).length > 0) {
-        console.log('[PERSISTENCE] Loaded from Supabase:', supabaseState);
         // Merge with initial state to ensure all exercises have entries
         const mergedState = { ...exercisesState };
         Object.keys(supabaseState).forEach(idx => {
@@ -80,7 +79,6 @@ export default function WorkoutPage() {
       } else {
         // Fallback to localStorage
         const saved = loadWorkoutProgress(user.id, day);
-        console.log('[PERSISTENCE] Fallback to localStorage:', saved);
         if (saved && saved.exercisesState) {
           const savedExerciseCount = Object.keys(saved.exercisesState).length;
           if (savedExerciseCount === plan.exercises.length) {
@@ -102,7 +100,7 @@ export default function WorkoutPage() {
       ...prev,
       [currentExerciseIndex]: {
         sets: sets || prev[currentExerciseIndex]?.sets || [],
-        completed: completed || prev[currentExerciseIndex]?.completed || false
+        completed: completed !== undefined ? completed : (prev[currentExerciseIndex]?.completed || false)
       }
     }));
   }, [currentExerciseIndex]);
@@ -173,7 +171,6 @@ export default function WorkoutPage() {
         ...exercisesState,
         [currentExerciseIndex]: { sets, completed: false }
       };
-      console.log('[PERSISTENCE] Saving set progress:', { currentExerciseIndex, sets, updatedState });
       saveWorkoutProgress(user.id, day, updatedState, currentExerciseIndex);
       // Save to Supabase (async)
       const exerciseName = plan.exercises[currentExerciseIndex]?.name || '';

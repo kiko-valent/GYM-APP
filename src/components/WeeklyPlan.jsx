@@ -23,31 +23,30 @@ export default function WeeklyPlan() {
   const [workouts, setWorkouts] = useState({});
   const [loading, setLoading] = useState(true);
 
-  // Get current day
   const today = new Date().toLocaleDateString('es-ES', { weekday: 'long' }).toLowerCase();
   const [expandedDay, setExpandedDay] = useState(null);
 
   useEffect(() => {
     const fetchPlan = async () => {
       if (user) {
+        const currentDay = new Date().toLocaleDateString('es-ES', { weekday: 'long' }).toLowerCase();
         const plan = await getUserPlan(user.id);
         const sortedDays = (plan.training_days || []).sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
         setTrainingDays(sortedDays);
         setWorkouts(plan.workouts || {});
 
-        // Expand today if it's a training day
-        if (sortedDays.includes(today)) {
-          setExpandedDay(today);
-        } else {
-          // Or expand the first day? Or none?
-          // "excepto el día actual, que debe aparecer abierto." if it exists.
+        // Expand today if it's a training day, otherwise expand the first day
+        if (sortedDays.includes(currentDay)) {
+          setExpandedDay(currentDay);
+        } else if (sortedDays.length > 0) {
+          setExpandedDay(sortedDays[0]);
         }
 
         setLoading(false);
       }
     };
     fetchPlan();
-  }, [user, today]);
+  }, [user]);
 
   const toggleDay = (day) => {
     setExpandedDay(expandedDay === day ? null : day);

@@ -128,14 +128,9 @@ export default function RestTimer({ onComplete, onBack, nextExercise }) {
       {/* Resume Button */}
       <button
         onClick={onComplete}
-        className="w-full btn-cyan py-5 text-lg font-bold mb-4"
+        className="w-full btn-cyan py-5 text-lg font-bold"
       >
-        Resume Workout →
-      </button>
-
-      {/* Edit Timer Link */}
-      <button className="text-secondary text-sm hover:text-white transition-colors">
-        Edit Timer Settings
+        Continuar Entrenamiento →
       </button>
     </motion.div>
   );

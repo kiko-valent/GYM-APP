@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { getWorkoutHistory, deleteWorkoutSession } from '@/utils/workoutData';
 import { useToast } from '@/components/ui/use-toast';
@@ -46,7 +46,6 @@ export default function ProgressPage() {
       });
 
     } catch (err) {
-      console.error(err);
       toast({
         variant: "destructive",
         title: "Error",
@@ -71,11 +70,8 @@ export default function ProgressPage() {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-xl font-bold text-white">Progress</h1>
+            <h1 className="text-xl font-bold text-white">Progreso</h1>
           </div>
-          <button className="text-white/60 hover:text-white p-2">
-            <MoreHorizontal className="w-5 h-5" />
-          </button>
         </motion.div>
 
         {loading ? (

@@ -18,8 +18,11 @@ function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        Cargando...
+      <div className="min-h-screen flex items-center justify-center bg-dark-bg">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-lime border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-secondary">Cargando...</p>
+        </div>
       </div>
     );
   }
@@ -30,8 +33,11 @@ function PublicRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        Cargando...
+      <div className="min-h-screen flex items-center justify-center bg-dark-bg">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-lime border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-secondary">Cargando...</p>
+        </div>
       </div>
     );
   }

@@ -104,10 +104,22 @@ export default function SetTracker({
   };
 
   const handleConfirmSet = () => {
+    const parsedReps = parseInt(reps, 10);
+    const parsedWeight = parseFloat(weight);
+
+    if (!parsedReps || parsedReps <= 0) {
+      toast({ variant: 'destructive', title: 'Repeticiones inválidas', description: 'Introduce un número de reps mayor que 0.' });
+      return;
+    }
+    if (isNaN(parsedWeight) || parsedWeight < 0) {
+      toast({ variant: 'destructive', title: 'Peso inválido', description: 'Introduce un peso válido (mayor o igual a 0).' });
+      return;
+    }
+
     const setData = {
       set: currentSet,
-      reps: parseInt(reps, 10),
-      weight: parseFloat(weight),
+      reps: parsedReps,
+      weight: parsedWeight,
     };
 
     if (trackIntensity) {
@@ -443,7 +455,7 @@ export default function SetTracker({
                 </div>
               </div>
               <span className="text-lime font-bold">
-                {Math.min(100, Math.round((weight / exercise.targetWeight) * 100))}%
+                {exercise.targetWeight > 0 ? Math.min(100, Math.round((weight / exercise.targetWeight) * 100)) : 0}%
               </span>
             </motion.div>
           )}

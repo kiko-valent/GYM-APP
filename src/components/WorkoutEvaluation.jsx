@@ -77,6 +77,7 @@ export default function WorkoutEvaluation({ onComplete }) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="¿Algo que quieras recordar sobre este entrenamiento?"
+            maxLength={500}
             className="bg-dark-bg border-dark-border text-white placeholder:text-secondary/60 min-h-[100px] focus:border-cyan focus:ring-cyan/20"
           />
         </div>
@@ -91,6 +92,11 @@ export default function WorkoutEvaluation({ onComplete }) {
         <Check className="w-5 h-5 mr-2" />
         Guardar y Finalizar
       </Button>
+      {!selectedFeeling && (
+        <p className="text-center text-secondary text-sm mt-2">
+          Selecciona cómo te has sentido para continuar
+        </p>
+      )}
     </motion.div>
   );
 }
