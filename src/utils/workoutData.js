@@ -1,6 +1,23 @@
 import { supabase } from '@/lib/customSupabaseClient';
 import { logError } from '@/utils/errorLogger';
 
+const DAY_ALIASES = {
+  'miercoles': 'miércoles',
+  'sabado': 'sábado',
+};
+function normalizeDayName(day) {
+  return DAY_ALIASES[day?.toLowerCase()] ?? day;
+}
+export function normalizePlanData(plan) {
+  if (!plan) return plan;
+  const normalizedDays = (plan.training_days || []).map(normalizeDayName);
+  const normalizedWorkouts = {};
+  Object.entries(plan.workouts || {}).forEach(([key, val]) => {
+    normalizedWorkouts[normalizeDayName(key)] = val;
+  });
+  return { ...plan, training_days: normalizedDays, workouts: normalizedWorkouts };
+}
+
 const defaultPlan = {
   training_days: ['lunes', 'martes', 'jueves', 'viernes'],
   workouts: {

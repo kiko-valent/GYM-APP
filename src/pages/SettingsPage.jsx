@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { getUserPlan, updateUserPlan } from '@/utils/workoutData';
+import { getUserPlan, updateUserPlan, normalizePlanData } from '@/utils/workoutData';
 import { useToast } from "@/components/ui/use-toast.js";
 import VideoUpload from '@/components/VideoUpload.jsx';
 
@@ -31,7 +31,7 @@ export default function SettingsPage() {
     const fetchPlan = async () => {
       if (user) {
         try {
-          const userPlan = await getUserPlan(user.id);
+          const userPlan = normalizePlanData(await getUserPlan(user.id));
           if (isMounted) {
             // Ensure preferences object exists
             if (!userPlan.preferences) {

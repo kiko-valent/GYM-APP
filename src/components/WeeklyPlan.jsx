@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Dumbbell, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { getUserPlan } from '@/utils/workoutData';
+import { getUserPlan, normalizePlanData } from '@/utils/workoutData';
 
 const dayOrder = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 const dayLabels = {
@@ -30,7 +30,7 @@ export default function WeeklyPlan() {
     const fetchPlan = async () => {
       if (user) {
         const currentDay = new Date().toLocaleDateString('es-ES', { weekday: 'long' }).toLowerCase();
-        const plan = await getUserPlan(user.id);
+        const plan = normalizePlanData(await getUserPlan(user.id));
         const sortedDays = (plan.training_days || []).sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
         setTrainingDays(sortedDays);
         setWorkouts(plan.workouts || {});
