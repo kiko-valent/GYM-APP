@@ -31,9 +31,16 @@ export default function RegisterPage() {
           description: "Bienvenido a FitTrack. Revisa tu email para confirmar tu cuenta.",
         });
         navigate('/dashboard');
+      } else {
+        toast({
+          title: "Error al crear la cuenta",
+          description: error.message,
+          variant: "destructive",
+        });
       }
     } catch (err) {
       console.error("Registration error:", err);
+      toast({ title: "Error inesperado", description: "Inténtalo de nuevo.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }

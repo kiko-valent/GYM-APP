@@ -305,6 +305,7 @@ export default function SettingsPage() {
                           <Label className="text-xs text-cyan uppercase font-bold tracking-wider text-center block">Series</Label>
                           <Input
                             type="number"
+                            min="0"
                             value={ex.sets}
                             onChange={(e) => handleExerciseChange(day, exIndex, 'sets', parseInt(e.target.value) || 0)}
                             className="bg-white/10 border-white/20 text-white text-center focus:bg-white/20"
@@ -314,6 +315,7 @@ export default function SettingsPage() {
                           <Label className="text-xs text-cyan uppercase font-bold tracking-wider text-center block">Reps</Label>
                           <Input
                             type="number"
+                            min="0"
                             value={ex.reps}
                             onChange={(e) => handleExerciseChange(day, exIndex, 'reps', parseInt(e.target.value) || 0)}
                             className="bg-white/10 border-white/20 text-white text-center focus:bg-white/20"
@@ -323,6 +325,7 @@ export default function SettingsPage() {
                           <Label className="text-xs text-cyan uppercase font-bold tracking-wider text-center block">Peso</Label>
                           <Input
                             type="number"
+                            min="0"
                             value={ex.weight}
                             onChange={(e) => handleExerciseChange(day, exIndex, 'weight', parseFloat(e.target.value) || 0)}
                             className="bg-white/10 border-white/20 text-white text-center focus:bg-white/20"

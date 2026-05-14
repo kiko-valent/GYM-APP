@@ -30,9 +30,18 @@ export default function LoginPage() {
           description: "Iniciando sesión...",
         });
         navigate('/dashboard');
+      } else {
+        toast({
+          title: "Error al iniciar sesión",
+          description: error.message === 'Invalid login credentials'
+            ? "Email o contraseña incorrectos."
+            : error.message,
+          variant: "destructive",
+        });
       }
     } catch (err) {
       console.error("Login error:", err);
+      toast({ title: "Error inesperado", description: "Inténtalo de nuevo.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }

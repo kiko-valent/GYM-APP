@@ -10,7 +10,8 @@ import WorkoutEvaluation from '@/components/WorkoutEvaluation';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function WorkoutPage() {
-  const { day } = useParams();
+  const { day: rawDay } = useParams();
+  const day = rawDay?.toLowerCase();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
