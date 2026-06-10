@@ -20,16 +20,17 @@ export function normalizePlanData(plan) {
 
 const defaultPlan = {
   training_days: ['lunes', 'martes', 'jueves', 'viernes'],
+  preferences: { trackIntensity: true },
   workouts: {
     lunes: {
       exercises: [
-        { name: 'Press de Banca', sets: 4, reps: 10, weight: 60, description: 'Mantener codos a 45 grados, pies firmes en el suelo.' },
-        { name: 'Aperturas con Mancuernas', sets: 3, reps: 12, weight: 15, description: '' },
+        { name: 'Press de Banca', sets: 4, repsMin: 8, repsMax: 12, weight: 60, description: 'Mantener codos a 45 grados, pies firmes en el suelo.' },
+        { name: 'Aperturas con Mancuernas', sets: 3, repsMin: 10, repsMax: 15, weight: 15, description: '' },
       ]
     },
-    martes: { exercises: [{ name: 'Dominadas', sets: 4, reps: 8, weight: 0, description: 'Rango completo de movimiento.' }] },
-    jueves: { exercises: [{ name: 'Sentadillas', sets: 4, reps: 10, weight: 80, description: 'Romper el paralelo, pecho arriba.' }] },
-    viernes: { exercises: [{ name: 'Press Militar', sets: 4, reps: 10, weight: 40, description: 'No arquear la espalda baja.' }] },
+    martes: { exercises: [{ name: 'Dominadas', sets: 4, repsMin: 6, repsMax: 10, weight: 0, description: 'Rango completo de movimiento.' }] },
+    jueves: { exercises: [{ name: 'Sentadillas', sets: 4, repsMin: 8, repsMax: 12, weight: 80, description: 'Romper el paralelo, pecho arriba.' }] },
+    viernes: { exercises: [{ name: 'Press Militar', sets: 4, repsMin: 8, repsMax: 12, weight: 40, description: 'No arquear la espalda baja.' }] },
   }
 };
 
@@ -145,14 +146,13 @@ export async function saveWorkoutSession(userId, session) {
       return { error: sessionError };
     }
 
-    // Prepare exercises with all details including RIR/RPE if available
-    // Ensure reps is integer and weight is rounded to integer (Supabase requires integer type)
+    // La columna weight debe ser numeric en Supabase para no perder microcargas (62.5kg)
     const exercisesToInsert = session.exercises.flatMap(exercise =>
       exercise.sets.map(set => ({
         session_id: sessionData.id,
         exercise_name: exercise.name,
         reps: parseInt(set.reps, 10) || 0,
-        weight: Math.round(parseFloat(set.weight) || 0),
+        weight: parseFloat(set.weight) || 0,
         rir: set.rir != null ? parseInt(set.rir, 10) : null,
         rpe: set.rpe != null ? parseInt(set.rpe, 10) : null
       }))
@@ -203,13 +203,15 @@ export async function getWorkoutHistory(userId) {
   }
 }
 
-export async function getPreviousWorkout(userId, day, exerciseName) {
+// Última sesión del ejercicio buscada por nombre (no por día de la semana,
+// para que mover un ejercicio a otro día no pierda su historial).
+// Devuelve TODAS las series de esa sesión, en orden de inserción.
+export async function getPreviousWorkout(userId, exerciseName) {
   try {
     const { data, error } = await supabase
       .from('workout_sessions')
-      .select('evaluation, notes, workout_exercises!inner(reps, weight, rir, rpe)')
+      .select('date, evaluation, notes, workout_exercises!inner(id, reps, weight, rir)')
       .eq('user_id', userId)
-      .eq('day', day)
       .eq('workout_exercises.exercise_name', exerciseName)
       .order('date', { ascending: false })
       .limit(1)
@@ -224,16 +226,15 @@ export async function getPreviousWorkout(userId, day, exerciseName) {
       return null;
     }
 
-    const lastSession = data;
-    const exerciseData = data.workout_exercises[0];
+    const sets = [...data.workout_exercises]
+      .sort((a, b) => (a.id > b.id ? 1 : a.id < b.id ? -1 : 0))
+      .map(s => ({ reps: s.reps, weight: s.weight, rir: s.rir }));
 
     return {
-      reps: exerciseData.reps,
-      weight: exerciseData.weight,
-      rir: exerciseData.rir,
-      rpe: exerciseData.rpe,
-      feeling: lastSession.evaluation?.feeling,
-      notes: lastSession.notes
+      date: data.date,
+      sets,
+      feeling: data.evaluation?.feeling,
+      notes: data.notes
     };
   } catch (e) {
     handleSupabaseError(e, 'getPreviousWorkout (unexpected)');

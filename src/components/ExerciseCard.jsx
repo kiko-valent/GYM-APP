@@ -26,12 +26,12 @@ export default function ExerciseCard({ exercise, exerciseNumber, totalExercises,
 
   useEffect(() => {
     const fetchData = async () => {
-      const prev = await getPreviousWorkout(userId, day, exercise.name);
+      const prev = await getPreviousWorkout(userId, exercise.name);
       setPreviousData(prev);
       setLoading(false);
     };
     fetchData();
-  }, [userId, day, exercise.name]);
+  }, [userId, exercise.name]);
 
   const handleComplete = () => {
     onComplete({ reps, weight, exerciseName: exercise.name });

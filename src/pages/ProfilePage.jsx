@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from '@/lib/customSupabaseClient';
+import BottomNav from '@/components/BottomNav';
 
 const goalOptions = ["Definición", "Mantenimiento", "Aumento de peso"];
 
@@ -141,7 +142,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 bg-dark-bg text-white">
+    <div className="min-h-screen p-4 md:p-8 pb-28 bg-dark-bg text-white">
       <div className="max-w-4xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 mb-8">
           <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors -ml-1">
@@ -251,6 +252,8 @@ export default function ProfilePage() {
           </Button>
         </motion.div>
       </div>
+
+      <BottomNav />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Trash2, PlusCircle, Save, Loader2, AlertCircle, StickyNote, Gauge, Target, Calendar, Calculator, Wrench, ChevronRight, Video } from 'lucide-react';
+import { ArrowLeft, Trash2, PlusCircle, Save, Loader2, AlertCircle, StickyNote, Gauge, Target, Calendar, Calculator, Wrench, ChevronRight, ChevronUp, ChevronDown, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
@@ -10,6 +10,8 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { getUserPlan, updateUserPlan, normalizePlanData } from '@/utils/workoutData';
 import { useToast } from "@/components/ui/use-toast.js";
 import VideoUpload from '@/components/VideoUpload.jsx';
+import BottomNav from '@/components/BottomNav.jsx';
+import { MUSCLE_GROUPS } from '@/utils/progression';
 
 const allDays = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 
@@ -33,9 +35,9 @@ export default function SettingsPage() {
         try {
           const userPlan = normalizePlanData(await getUserPlan(user.id));
           if (isMounted) {
-            // Ensure preferences object exists
+            // Ensure preferences object exists (RIR activado por defecto)
             if (!userPlan.preferences) {
-              userPlan.preferences = { trackIntensity: false };
+              userPlan.preferences = { trackIntensity: true };
             }
             setPlan(userPlan);
             setLoading(false);
@@ -132,8 +134,9 @@ export default function SettingsPage() {
       const newExercise = {
         name: '',
         sets: 4,
-        reps: 10,
-        weight: 0,
+        repsMin: 8,
+        repsMax: 12,
+        muscleGroup: '',
         description: '',
         targetWeight: '',
         targetDate: '',
@@ -145,6 +148,42 @@ export default function SettingsPage() {
       newPlan.workouts[day].exercises.push(newExercise);
       setIsDirty(true);
       return newPlan;
+    });
+  };
+
+  const moveExercise = (day, exIndex, direction) => {
+    setPlan(prevPlan => {
+      if (!prevPlan) return prevPlan;
+      const newPlan = JSON.parse(JSON.stringify(prevPlan));
+      const arr = newPlan.workouts[day]?.exercises;
+      const target = exIndex + direction;
+      if (!arr || target < 0 || target >= arr.length) return prevPlan;
+      [arr[exIndex], arr[target]] = [arr[target], arr[exIndex]];
+      setIsDirty(true);
+      return newPlan;
+    });
+  };
+
+  const copyDayTo = (sourceDay, targetDay) => {
+    if (!targetDay || targetDay === sourceDay) return;
+    setPlan(prevPlan => {
+      if (!prevPlan) return prevPlan;
+      const newPlan = JSON.parse(JSON.stringify(prevPlan));
+      const sourceExercises = newPlan.workouts[sourceDay]?.exercises || [];
+      if (sourceExercises.length === 0) return prevPlan;
+      if (!newPlan.workouts[targetDay]) {
+        newPlan.workouts[targetDay] = { exercises: [] };
+      }
+      newPlan.workouts[targetDay].exercises.push(...JSON.parse(JSON.stringify(sourceExercises)));
+      if (!newPlan.training_days.includes(targetDay)) {
+        newPlan.training_days.push(targetDay);
+      }
+      setIsDirty(true);
+      return newPlan;
+    });
+    toast({
+      title: 'Día copiado',
+      description: `Ejercicios de ${sourceDay} añadidos a ${targetDay}. Recuerda guardar.`,
     });
   };
 
@@ -174,7 +213,7 @@ export default function SettingsPage() {
   const sortedTrainingDays = [...plan.training_days].sort((a, b) => allDays.indexOf(a) - allDays.indexOf(b));
 
   return (
-    <div className="min-h-screen p-4 md:p-8 bg-dark-bg">
+    <div className="min-h-screen p-4 md:p-8 pb-28 bg-dark-bg">
       <div className="max-w-4xl mx-auto">
         {/* Header with Save Status */}
         <motion.div
@@ -187,7 +226,7 @@ export default function SettingsPage() {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-white">Configurar Plan</h1>
+              <h1 className="text-3xl font-bold text-white">Mi Rutina</h1>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                 <p className="text-secondary">Personaliza tus días y ejercicios</p>
                 <div className="hidden md:block h-4 w-px bg-white/20"></div>
@@ -242,9 +281,9 @@ export default function SettingsPage() {
               className="border-white/50 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
             />
             <Label htmlFor="rir-rpe" className="text-white cursor-pointer flex-1">
-              <span className="font-semibold block mb-1">Habilitar RIR / RPE (Intensidad)</span>
+              <span className="font-semibold block mb-1">Registrar RIR (reps en reserva)</span>
               <span className="text-white/60 font-normal text-xs block">
-                Permite registrar Repeticiones en Reserva (RIR) y Esfuerzo Percibido (RPE) durante el entrenamiento para un control más avanzado de la fatiga.
+                Apunta cuántas reps te quedaban al terminar cada serie. Es el dato que usa la app para sugerirte cuándo subir, mantener o bajar peso.
               </span>
             </Label>
           </div>
@@ -278,11 +317,25 @@ export default function SettingsPage() {
               transition={{ delay: 0.2 + dayIndex * 0.05 }}
               className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20 mb-6"
             >
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-center mb-6 gap-3">
                 <h3 className="text-2xl font-bold text-white capitalize">{day}</h3>
-                <span className="text-xs bg-white/10 text-white px-2 py-1 rounded-full">
-                  {plan.workouts[day]?.exercises.length || 0} ejercicios
-                </span>
+                <div className="flex items-center gap-2">
+                  {(plan.workouts[day]?.exercises.length || 0) > 0 && (
+                    <select
+                      value=""
+                      onChange={(e) => copyDayTo(day, e.target.value)}
+                      className="h-8 px-2 rounded-md bg-dark-card border border-dark-border text-secondary text-xs focus:outline-none focus:border-cyan/50"
+                    >
+                      <option value="" disabled>Copiar día a…</option>
+                      {allDays.filter(d => d !== day).map(d => (
+                        <option key={d} value={d} className="capitalize">{d}</option>
+                      ))}
+                    </select>
+                  )}
+                  <span className="text-xs bg-white/10 text-white px-2 py-1 rounded-full whitespace-nowrap">
+                    {plan.workouts[day]?.exercises.length || 0} ejercicios
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -311,34 +364,70 @@ export default function SettingsPage() {
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-cyan uppercase font-bold tracking-wider text-center block">Reps</Label>
+                          <Label className="text-xs text-cyan uppercase font-bold tracking-wider text-center block">Reps mín</Label>
                           <Input
                             type="number"
-                            value={ex.reps}
-                            onChange={(e) => handleExerciseChange(day, exIndex, 'reps', parseInt(e.target.value) || 0)}
+                            value={ex.repsMin ?? ex.reps ?? ''}
+                            onChange={(e) => handleExerciseChange(day, exIndex, 'repsMin', parseInt(e.target.value) || 0)}
                             className="bg-white/10 border-white/20 text-white text-center focus:bg-white/20"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-cyan uppercase font-bold tracking-wider text-center block">Peso</Label>
+                          <Label className="text-xs text-cyan uppercase font-bold tracking-wider text-center block">Reps máx</Label>
                           <Input
                             type="number"
-                            value={ex.weight}
-                            onChange={(e) => handleExerciseChange(day, exIndex, 'weight', parseFloat(e.target.value) || 0)}
+                            value={ex.repsMax ?? ex.reps ?? ''}
+                            onChange={(e) => handleExerciseChange(day, exIndex, 'repsMax', parseInt(e.target.value) || 0)}
                             className="bg-white/10 border-white/20 text-white text-center focus:bg-white/20"
                           />
                         </div>
                       </div>
-                      <div className="md:col-span-1 flex justify-end pb-1">
+                      <div className="md:col-span-1 flex md:flex-col items-center justify-end gap-1 pb-1">
+                        <Button
+                          onClick={() => moveExercise(day, exIndex, -1)}
+                          disabled={exIndex === 0}
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-secondary hover:text-white hover:bg-white/10 disabled:opacity-20"
+                          title="Subir ejercicio"
+                        >
+                          <ChevronUp size={16} />
+                        </Button>
+                        <Button
+                          onClick={() => moveExercise(day, exIndex, 1)}
+                          disabled={exIndex === (plan.workouts[day]?.exercises.length || 0) - 1}
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-secondary hover:text-white hover:bg-white/10 disabled:opacity-20"
+                          title="Bajar ejercicio"
+                        >
+                          <ChevronDown size={16} />
+                        </Button>
                         <Button
                           onClick={() => removeExercise(day, exIndex)}
                           variant="ghost"
                           size="icon"
-                          className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                          className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                          title="Eliminar ejercicio"
                         >
-                          <Trash2 size={18} />
+                          <Trash2 size={16} />
                         </Button>
                       </div>
+                    </div>
+
+                    {/* Muscle Group Row - alimenta el volumen semanal por grupo en Progreso */}
+                    <div className="space-y-1.5 mb-3">
+                      <Label className="text-xs text-cyan uppercase font-bold tracking-wider">Grupo muscular</Label>
+                      <select
+                        value={ex.muscleGroup || ''}
+                        onChange={(e) => handleExerciseChange(day, exIndex, 'muscleGroup', e.target.value)}
+                        className="w-full h-10 px-3 rounded-md bg-dark-card border border-dark-border text-white text-sm focus:outline-none focus:border-cyan/50"
+                      >
+                        <option value="">Sin asignar</option>
+                        {MUSCLE_GROUPS.map(g => (
+                          <option key={g.value} value={g.value}>{g.label}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* Goals / Targets Row */}
@@ -417,7 +506,7 @@ export default function SettingsPage() {
 
         {/* Bottom Sticky Save Button for Mobile */}
         <motion.div
-          className="md:hidden fixed bottom-6 right-6 z-50"
+          className="md:hidden fixed bottom-24 right-6 z-50"
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
         >
@@ -437,6 +526,8 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      <BottomNav />
     </div >
   );
 }

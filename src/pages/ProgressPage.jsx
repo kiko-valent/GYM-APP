@@ -1,19 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { getWorkoutHistory, deleteWorkoutSession } from '@/utils/workoutData';
 import { useToast } from '@/components/ui/use-toast';
 import ProgressStats from '@/components/ProgressStats';
 import WorkoutHistoryList from '@/components/WorkoutHistoryList';
+import ExerciseProgress from '@/components/ExerciseProgress';
+import WeeklyVolume from '@/components/WeeklyVolume';
+import FatigueInsights from '@/components/FatigueInsights';
+import MonthlyReport from '@/components/MonthlyReport';
+import BottomNav from '@/components/BottomNav';
+
+const TABS = [
+  { id: 'ejercicios', label: 'Ejercicios' },
+  { id: 'semana', label: 'Semana' },
+  { id: 'fatiga', label: 'Fatiga' },
+  { id: 'historial', label: 'Historial' },
+];
 
 export default function ProgressPage() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('ejercicios');
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -55,23 +65,15 @@ export default function ProgressPage() {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 bg-dark-bg">
+    <div className="min-h-screen p-4 md:p-8 pb-28 bg-dark-bg">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8"
+          className="mb-6"
         >
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="text-white/60 hover:text-white p-2 -ml-2"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-xl font-bold text-white">Progreso</h1>
-          </div>
+          <h1 className="text-2xl font-bold text-white">Progreso</h1>
         </motion.div>
 
         {loading ? (
@@ -85,10 +87,36 @@ export default function ProgressPage() {
           <div className="space-y-6">
             <ProgressStats history={history} userId={user?.id} />
 
-            <WorkoutHistoryList history={history} onDelete={handleDeleteSession} />
+            {/* Tabs */}
+            <div className="flex bg-dark-card rounded-full p-1 border border-dark-border">
+              {TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 py-2.5 text-sm font-semibold rounded-full transition-all ${activeTab === tab.id
+                    ? 'bg-lime text-dark-bg'
+                    : 'text-secondary hover:text-white'
+                    }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'ejercicios' && <ExerciseProgress history={history} />}
+            {activeTab === 'semana' && <WeeklyVolume history={history} userId={user?.id} />}
+            {activeTab === 'fatiga' && <FatigueInsights history={history} />}
+            {activeTab === 'historial' && (
+              <div className="space-y-4">
+                <MonthlyReport history={history} userId={user?.id} />
+                <WorkoutHistoryList history={history} onDelete={handleDeleteSession} />
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      <BottomNav />
     </div>
   );
 }

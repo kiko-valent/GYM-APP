@@ -19,7 +19,7 @@ export default function WorkoutPage() {
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [progressLoaded, setProgressLoaded] = useState(false);
-  const [userPreferences, setUserPreferences] = useState({ trackIntensity: false });
+  const [userPreferences, setUserPreferences] = useState({ trackIntensity: true });
 
   // State object to track ALL exercises' progress
   const [exercisesState, setExercisesState] = useState({});
@@ -297,9 +297,8 @@ export default function WorkoutPage() {
         onExerciseComplete={handleExerciseComplete}
         onSetProgress={handleSetProgress}
         userId={user.id}
-        day={day}
         initialCompletedSets={currentExerciseState.sets}
-        trackIntensity={userPreferences.trackIntensity}
+        trackIntensity={userPreferences.trackIntensity ?? true}
       />
     </div>
   );

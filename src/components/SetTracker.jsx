@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Plus, Minus, ArrowLeft, Target, Calendar, Trophy, Timer, ExternalLink, Pencil, X } from 'lucide-react';
+import { Check, Plus, Minus, ArrowLeft, Target, Calendar, Trophy, Timer, ExternalLink, Pencil, X, TrendingUp, TrendingDown, ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button.jsx';
 import { getPreviousWorkout } from '@/utils/workoutData';
+import { getSuggestion, getRepRange, formatRepRange } from '@/utils/progression';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function SetTracker({
@@ -10,7 +11,6 @@ export default function SetTracker({
   onExerciseComplete,
   onSetProgress,
   userId,
-  day,
   initialCompletedSets = [],
   trackIntensity = false
 }) {
@@ -22,14 +22,13 @@ export default function SetTracker({
 
   // Initialize inputs with last completed set values if available, else default
   const lastCompleted = initialCompletedSets[initialCompletedSets.length - 1];
-  const [reps, setReps] = useState(lastCompleted ? lastCompleted.reps : exercise.reps);
-  const [weight, setWeight] = useState(lastCompleted ? lastCompleted.weight : exercise.weight);
+  const [reps, setReps] = useState(lastCompleted ? lastCompleted.reps : getRepRange(exercise).max);
+  const [weight, setWeight] = useState(lastCompleted ? lastCompleted.weight : (exercise.weight ?? 0));
 
-  // New RIR/RPE states
   const [rir, setRir] = useState(lastCompleted ? lastCompleted.rir ?? 2 : 2);
-  const [rpe, setRpe] = useState(lastCompleted ? lastCompleted.rpe ?? 8 : 8);
 
   const [previousData, setPreviousData] = useState(null);
+  const [suggestion, setSuggestion] = useState(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -59,16 +58,20 @@ export default function SetTracker({
 
   useEffect(() => {
     const fetchPreviousData = async () => {
-      const prev = await getPreviousWorkout(userId, day, exercise.name);
+      const prev = await getPreviousWorkout(userId, exercise.name);
       setPreviousData(prev);
-      if (prev && completedSets.length === 0) {
-        setWeight(prev.weight || exercise.weight);
+      const sugg = getSuggestion(prev, exercise);
+      setSuggestion(sugg);
+      // Solo precargamos si aún no hay series hechas hoy
+      if (completedSets.length === 0) {
+        if (sugg.weight > 0) setWeight(sugg.weight);
+        if (prev?.sets?.[0]?.reps) setReps(prev.sets[0].reps);
       }
       setLoading(false);
     };
     fetchPreviousData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, day, exercise.name, exercise.weight]);
+  }, [userId, exercise.name]);
 
   // Timer countdown effect
   useEffect(() => {
@@ -93,6 +96,14 @@ export default function SetTracker({
       navigator.vibrate([200, 100, 200]);
     }
   }, [showRestTimer, timeLeft]);
+
+  const formatDaysAgo = (dateString) => {
+    if (!dateString) return '';
+    const days = Math.floor((new Date() - new Date(dateString)) / (1000 * 60 * 60 * 24));
+    if (days <= 0) return 'hoy';
+    if (days === 1) return 'ayer';
+    return `hace ${days} días`;
+  };
 
   const formatDeadline = (dateString) => {
     if (!dateString) return '';
@@ -136,7 +147,6 @@ export default function SetTracker({
 
     if (trackIntensity) {
       setData.rir = parseInt(rir, 10);
-      setData.rpe = parseInt(rpe, 10);
     }
 
     if (exercise.targetWeight && parsed.weight >= parseFloat(exercise.targetWeight)) {
@@ -193,7 +203,6 @@ export default function SetTracker({
     };
     if (trackIntensity) {
       setData.rir = parseInt(rir, 10);
-      setData.rpe = parseInt(rpe, 10);
     }
     proceedToNextStep(setData);
   };
@@ -201,6 +210,9 @@ export default function SetTracker({
   const handleContinueToNextSet = () => {
     setShowRestTimer(false);
     setIsTimerRunning(false);
+    // Precarga las reps que hiciste en esta misma serie la última sesión
+    const nextPrevSet = previousData?.sets?.[currentSet];
+    if (nextPrevSet?.reps) setReps(nextPrevSet.reps);
     setCurrentSet(prev => Math.min(prev + 1, totalSets));
     setTimeLeft(restDuration);
   };
@@ -220,14 +232,13 @@ export default function SetTracker({
   // ===== Edit previous set =====
   const startEditSet = (index) => {
     if (editingIndex === null) {
-      stashedInputsRef.current = { reps, weight, rir, rpe };
+      stashedInputsRef.current = { reps, weight, rir };
     }
     const target = completedSets[index];
     setReps(target.reps);
     setWeight(target.weight);
     if (trackIntensity) {
       setRir(target.rir ?? 2);
-      setRpe(target.rpe ?? 8);
     }
     setEditingIndex(index);
   };
@@ -238,7 +249,6 @@ export default function SetTracker({
       setReps(stashed.reps);
       setWeight(stashed.weight);
       setRir(stashed.rir);
-      setRpe(stashed.rpe);
       stashedInputsRef.current = null;
     }
     setEditingIndex(null);
@@ -254,7 +264,6 @@ export default function SetTracker({
       const updated = { ...s, reps: parsed.reps, weight: parsed.weight };
       if (trackIntensity) {
         updated.rir = parseInt(rir, 10);
-        updated.rpe = parseInt(rpe, 10);
       }
       return updated;
     }));
@@ -431,7 +440,7 @@ export default function SetTracker({
               </div>
               <div className="text-left">
                 <p className="text-white font-semibold">{exercise.name}</p>
-                <p className="text-secondary text-sm">Serie {Math.min(currentSet + 1, totalSets)} • {exercise.reps} reps • {weight}kg</p>
+                <p className="text-secondary text-sm">Serie {Math.min(currentSet + 1, totalSets)} • {formatRepRange(exercise)} • {weight}kg</p>
               </div>
             </div>
             <Button
@@ -473,12 +482,7 @@ export default function SetTracker({
                   <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${allSetsDone ? 'bg-lime/20 text-lime' : 'bg-dark-card-lighter text-white'}`}>
                     {allSetsDone ? 'COMPLETADO ✓' : `SERIE ${currentSet}`}
                   </span>
-                  {!allSetsDone && <span className="text-secondary">de {totalSets}</span>}
-                  {!loading && previousData && (
-                    <span className="text-secondary text-sm">
-                      Anterior: {previousData.weight}kg × {previousData.reps}
-                    </span>
-                  )}
+                  {!allSetsDone && <span className="text-secondary">de {totalSets} · {formatRepRange(exercise)}</span>}
                 </div>
                 <Button
                   variant="link"
@@ -495,6 +499,61 @@ export default function SetTracker({
               <Timer className="w-5 h-5 text-cyan" />
             </div>
           </div>
+
+          {/* Suggestion Banner */}
+          {!loading && suggestion && !allSetsDone && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`flex items-start gap-3 rounded-2xl p-4 border ${suggestion.type === 'increase'
+                ? 'bg-lime/10 border-lime/30'
+                : suggestion.type === 'decrease'
+                  ? 'bg-red-500/10 border-red-500/30'
+                  : suggestion.type === 'maintain'
+                    ? 'bg-yellow-400/10 border-yellow-400/30'
+                    : 'bg-dark-card-lighter border-dark-border'
+                }`}
+            >
+              {suggestion.type === 'increase' && <TrendingUp className="w-5 h-5 text-lime mt-0.5 shrink-0" />}
+              {suggestion.type === 'decrease' && <TrendingDown className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />}
+              {suggestion.type === 'maintain' && <ArrowRight className="w-5 h-5 text-yellow-400 mt-0.5 shrink-0" />}
+              {suggestion.type === 'first' && <Sparkles className="w-5 h-5 text-cyan mt-0.5 shrink-0" />}
+              <div>
+                <p className={`font-bold ${suggestion.type === 'increase'
+                  ? 'text-lime'
+                  : suggestion.type === 'decrease'
+                    ? 'text-red-400'
+                    : suggestion.type === 'maintain'
+                      ? 'text-yellow-400'
+                      : 'text-cyan'
+                  }`}>
+                  {suggestion.title}
+                </p>
+                <p className="text-secondary text-sm mt-0.5">{suggestion.detail}</p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Last Session Reference */}
+          {!loading && previousData?.sets?.length > 0 && (
+            <div className="card-dark p-4">
+              <p className="label-uppercase mb-3">ÚLTIMA VEZ · {formatDaysAgo(previousData.date).toUpperCase()}</p>
+              <div className="flex flex-wrap gap-2">
+                {previousData.sets.map((s, i) => (
+                  <span
+                    key={i}
+                    className={`rounded-xl px-3 py-2 text-sm font-semibold ${i === currentSet - 1 && !allSetsDone
+                      ? 'bg-cyan/15 border border-cyan/40 text-white'
+                      : 'bg-dark-card-lighter text-white'
+                      }`}
+                  >
+                    {s.weight}kg × {s.reps}
+                    {s.rir != null && <span className="text-secondary font-normal"> · RIR {s.rir}</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Goal Reminder */}
           {exercise.targetWeight && (
@@ -627,36 +686,27 @@ export default function SetTracker({
                 </div>
               </div>
 
-              {/* RIR/RPE Section (if enabled) */}
+              {/* RIR Section (if enabled) - one tap selection */}
               {trackIntensity && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
-                  className="grid grid-cols-2 gap-4"
+                  className="card-dark p-4"
                 >
-                  <div className="card-dark p-4">
-                    <p className="label-uppercase text-center mb-2">RIR</p>
-                    <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => setRir(r => Math.max(0, r - 1))} className="text-cyan p-1">
-                        <Minus size={16} />
+                  <p className="label-uppercase text-center mb-3">RIR · ¿CUÁNTAS REPS TE QUEDABAN?</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[0, 1, 2, 3].map(value => (
+                      <button
+                        key={value}
+                        onClick={() => setRir(value)}
+                        className={`py-4 rounded-xl text-xl font-bold transition-colors active:scale-95 ${parseInt(rir, 10) === value
+                          ? 'bg-cyan text-dark-bg'
+                          : 'bg-dark-card-lighter text-white hover:bg-dark-border'
+                          }`}
+                      >
+                        {value === 3 ? '3+' : value}
                       </button>
-                      <span className="text-2xl font-bold text-white w-12 text-center">{rir}</span>
-                      <button onClick={() => setRir(r => r + 1)} className="text-cyan p-1">
-                        <Plus size={16} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="card-dark p-4">
-                    <p className="label-uppercase text-center mb-2">RPE</p>
-                    <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => setRpe(r => Math.max(1, r - 1))} className="text-cyan p-1">
-                        <Minus size={16} />
-                      </button>
-                      <span className="text-2xl font-bold text-white w-12 text-center">{rpe}</span>
-                      <button onClick={() => setRpe(r => Math.min(10, r + 1))} className="text-cyan p-1">
-                        <Plus size={16} />
-                      </button>
-                    </div>
+                    ))}
                   </div>
                 </motion.div>
               )}
@@ -738,7 +788,7 @@ export default function SetTracker({
                           {s.weight}kg × {s.reps}
                         </span>
                         {trackIntensity && s.rir != null && (
-                          <span className="text-secondary text-xs">RIR {s.rir} · RPE {s.rpe}</span>
+                          <span className="text-secondary text-xs">RIR {s.rir}</span>
                         )}
                       </div>
                       <span className={`text-xs font-medium ${isBeingEdited ? 'text-cyan' : 'text-secondary'}`}>

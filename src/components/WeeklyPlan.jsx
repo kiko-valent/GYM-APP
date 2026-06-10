@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Dumbbell, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { getUserPlan, normalizePlanData } from '@/utils/workoutData';
+import { formatRepRange } from '@/utils/progression';
 
 const dayOrder = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 const dayLabels = {
@@ -129,7 +130,7 @@ export default function WeeklyPlan() {
                           <div key={i} className="flex items-center gap-2 text-sm text-secondary">
                             <div className="w-1.5 h-1.5 rounded-full bg-cyan/50" />
                             <span className="truncate">{ex.name}</span>
-                            <span className="text-white/40 text-xs whitespace-nowrap ml-auto">{ex.sets}x{ex.reps}</span>
+                            <span className="text-white/40 text-xs whitespace-nowrap ml-auto">{ex.sets} × {formatRepRange(ex)}</span>
                           </div>
                         ))}
                         {dayWorkouts.length > 3 && (
