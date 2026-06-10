@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { getWorkoutPlanForDay, saveWorkoutSession, getUserPlan, saveWorkoutProgress, loadWorkoutProgress, clearWorkoutProgress, saveExerciseProgressToSupabase, loadWorkoutProgressFromSupabase, clearWorkoutProgressFromSupabase } from '@/utils/workoutData';
@@ -19,6 +18,7 @@ export default function WorkoutPage() {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [progressLoaded, setProgressLoaded] = useState(false);
   const [userPreferences, setUserPreferences] = useState({ trackIntensity: false });
 
   // State object to track ALL exercises' progress
@@ -69,11 +69,7 @@ export default function WorkoutPage() {
 
       if (supabaseState && Object.keys(supabaseState).length > 0) {
         // Merge with initial state to ensure all exercises have entries
-        const mergedState = { ...exercisesState };
-        Object.keys(supabaseState).forEach(idx => {
-          mergedState[idx] = supabaseState[idx];
-        });
-        setExercisesState(mergedState);
+        setExercisesState(prev => ({ ...prev, ...supabaseState }));
         const firstIncomplete = plan.exercises.findIndex((_, idx) => !supabaseState[idx]?.completed);
         setCurrentExerciseIndex(firstIncomplete !== -1 ? firstIncomplete : 0);
       } else {
@@ -90,20 +86,12 @@ export default function WorkoutPage() {
       }
 
       isInitializedRef.current = true;
+      setProgressLoaded(true);
     };
 
     loadProgress();
   }, [user, day, plan]);
 
-  const saveCurrentExerciseProgress = useCallback((sets, completed = false) => {
-    setExercisesState(prev => ({
-      ...prev,
-      [currentExerciseIndex]: {
-        sets: sets || prev[currentExerciseIndex]?.sets || [],
-        completed: completed !== undefined ? completed : (prev[currentExerciseIndex]?.completed || false)
-      }
-    }));
-  }, [currentExerciseIndex]);
 
   const handleNavigateToExercise = useCallback((targetIndex) => {
     if (targetIndex === currentExerciseIndex) return;
@@ -164,22 +152,21 @@ export default function WorkoutPage() {
   };
 
   const handleSetProgress = (sets) => {
-    saveCurrentExerciseProgress(sets, false);
-    // Persist to both localStorage and Supabase
-    if (isInitializedRef.current && sets && sets.length > 0) {
-      const updatedState = {
-        ...exercisesState,
-        [currentExerciseIndex]: { sets, completed: false }
-      };
-      saveWorkoutProgress(user.id, day, updatedState, currentExerciseIndex);
-      // Save to Supabase (async)
-      const exerciseName = plan.exercises[currentExerciseIndex]?.name || '';
-      saveExerciseProgressToSupabase(user.id, day, currentExerciseIndex, exerciseName, sets, false);
-    }
-  };
+    // Preserve the completed flag so editing a finished exercise doesn't un-complete it
+    const wasCompleted = exercisesState[currentExerciseIndex]?.completed || false;
+    const updatedState = {
+      ...exercisesState,
+      [currentExerciseIndex]: { sets: sets || [], completed: wasCompleted }
+    };
+    setExercisesState(updatedState);
 
-  const handleBack = () => {
-    navigate('/dashboard');
+    // Persist to both localStorage and Supabase (also when sets shrink after a correction)
+    const hadSets = (exercisesState[currentExerciseIndex]?.sets?.length || 0) > 0;
+    if (isInitializedRef.current && sets && (sets.length > 0 || hadSets)) {
+      saveWorkoutProgress(user.id, day, updatedState, currentExerciseIndex);
+      const exerciseName = plan.exercises[currentExerciseIndex]?.name || '';
+      saveExerciseProgressToSupabase(user.id, day, currentExerciseIndex, exerciseName, sets, wasCompleted);
+    }
   };
 
   const handleWorkoutFinish = async (evaluation) => {
@@ -240,7 +227,7 @@ export default function WorkoutPage() {
     return Math.round((completedCount / plan.exercises.length) * 100);
   };
 
-  if (loading) {
+  if (loading || (plan?.exercises?.length > 0 && !progressLoaded)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark-bg">
         <div className="text-center">
@@ -307,11 +294,8 @@ export default function WorkoutPage() {
       <SetTracker
         key={`exercise-${currentExerciseIndex}`}
         exercise={currentExercise}
-        exerciseNumber={currentExerciseIndex + 1}
-        totalExercises={plan.exercises.length}
         onExerciseComplete={handleExerciseComplete}
         onSetProgress={handleSetProgress}
-        onBack={handleBack}
         userId={user.id}
         day={day}
         initialCompletedSets={currentExerciseState.sets}
