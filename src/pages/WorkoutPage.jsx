@@ -197,7 +197,7 @@ export default function WorkoutPage() {
       evaluation
     };
 
-    const { error } = await saveWorkoutSession(user.id, sessionData);
+    const { error, roundedWeights } = await saveWorkoutSession(user.id, sessionData);
 
     if (error) {
       console.error('[WORKOUT] Error guardando sesión:', error);
@@ -213,10 +213,17 @@ export default function WorkoutPage() {
     clearWorkoutProgress(user.id, day);
     await clearWorkoutProgressFromSupabase(user.id, day);
 
-    toast({
-      title: "¡Entrenamiento guardado! 🎉",
-      description: "Gran trabajo hoy. Sigue así.",
-    });
+    if (roundedWeights) {
+      toast({
+        title: 'Guardado (pesos redondeados) ⚠️',
+        description: 'Tu base de datos aún no acepta decimales. Ejecuta la migración de la columna weight para guardar 62,5 kg exactos.',
+      });
+    } else {
+      toast({
+        title: "¡Entrenamiento guardado! 🎉",
+        description: "Gran trabajo hoy. Sigue así.",
+      });
+    }
 
     navigate('/dashboard');
   };

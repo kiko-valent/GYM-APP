@@ -147,27 +147,44 @@ export async function saveWorkoutSession(userId, session) {
     }
 
     // La columna weight debe ser numeric en Supabase para no perder microcargas (62.5kg)
-    const exercisesToInsert = session.exercises.flatMap(exercise =>
-      exercise.sets.map(set => ({
-        session_id: sessionData.id,
-        exercise_name: exercise.name,
-        reps: parseInt(set.reps, 10) || 0,
-        weight: parseFloat(set.weight) || 0,
-        rir: set.rir != null ? parseInt(set.rir, 10) : null,
-        rpe: set.rpe != null ? parseInt(set.rpe, 10) : null
-      }))
+    const buildRows = (roundWeights) => session.exercises.flatMap(exercise =>
+      exercise.sets.map(set => {
+        const w = parseFloat(set.weight) || 0;
+        return {
+          session_id: sessionData.id,
+          exercise_name: exercise.name,
+          reps: parseInt(set.reps, 10) || 0,
+          weight: roundWeights ? Math.round(w) : w,
+          rir: set.rir != null ? parseInt(set.rir, 10) : null,
+          rpe: set.rpe != null ? parseInt(set.rpe, 10) : null
+        };
+      })
     );
 
-    const { error: exercisesError } = await supabase
+    let { error: exercisesError } = await supabase
       .from('workout_exercises')
-      .insert(exercisesToInsert);
+      .insert(buildRows(false));
+
+    // 22P02: la columna weight aún es integer en la BD y rechaza decimales.
+    // Reintentamos redondeando para no perder la sesión del usuario.
+    let roundedWeights = false;
+    if (exercisesError && exercisesError.code === '22P02') {
+      handleSupabaseError(exercisesError, 'saveWorkoutSession (exercises, retry redondeando)');
+      const retry = await supabase
+        .from('workout_exercises')
+        .insert(buildRows(true));
+      exercisesError = retry.error;
+      roundedWeights = !exercisesError;
+    }
 
     if (exercisesError) {
       handleSupabaseError(exercisesError, 'saveWorkoutSession (exercises)');
+      // Borra la sesión huérfana para que no aparezca vacía en el historial
+      await supabase.from('workout_sessions').delete().eq('id', sessionData.id);
       return { error: exercisesError };
     }
 
-    return { error: null };
+    return { error: null, roundedWeights };
   } catch (e) {
     handleSupabaseError(e, 'saveWorkoutSession (unexpected)');
     return { error: e };
