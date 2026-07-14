@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Trash2, PlusCircle, Save, Loader2, AlertCircle, StickyNote, Gauge, Target, Calendar, Calculator, Wrench, ChevronRight, ChevronUp, ChevronDown, Video } from 'lucide-react';
+import { ArrowLeft, Trash2, PlusCircle, Save, Loader2, AlertCircle, StickyNote, Gauge, Target, Calendar, ChevronUp, ChevronDown, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
@@ -244,27 +244,6 @@ export default function SettingsPage() {
           >
             {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             {isDirty ? 'Guardar Cambios' : 'Sin Cambios'}
-          </Button>
-        </motion.div>
-
-        {/* Tools Section */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }} className="card-dark p-6 mb-8">
-          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <Wrench className="w-5 h-5 text-purple-400" /> Herramientas
-          </h2>
-          <Button
-            onClick={() => navigate('/calculator')}
-            variant="outline"
-            className="w-full justify-start h-auto py-4 px-4 bg-white/5 border-white/10 hover:bg-white/10 hover:text-white text-left group"
-          >
-            <div className="bg-blue-500/20 p-2 rounded-lg mr-4 group-hover:bg-blue-500/30 transition-colors">
-              <Calculator className="w-6 h-6 text-blue-400" />
-            </div>
-            <div>
-              <span className="text-white font-semibold block text-base">Calculadora de Calorías</span>
-              <span className="text-blue-200/70 font-normal text-sm">Calcula tu TDEE y objetivos calóricos</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-white/30 ml-auto group-hover:text-white/60 transition-colors" />
           </Button>
         </motion.div>
 

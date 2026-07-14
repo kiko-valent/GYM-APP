@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LogOut, Utensils, Scale, Check } from 'lucide-react';
+import { LogOut, Scale, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -150,36 +150,6 @@ export default function DashboardPage() {
                 </Button>
               </div>
             )}
-          </div>
-        </motion.div>
-
-        {/* Nutrition Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="mb-8"
-        >
-          <div
-            onClick={() => navigate('/nutrition')}
-            className="card-dark p-6 cursor-pointer hover:bg-dark-card-lighter transition-all group relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-lime/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:bg-lime/10" />
-
-            <div className="flex items-center justify-between relative z-10">
-              <div className="flex items-center gap-4">
-                <div className="bg-lime/20 p-3 rounded-xl">
-                  <Utensils className="w-6 h-6 text-lime" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">Mi Alimentación</h3>
-                  <p className="text-secondary text-sm">Tus objetivos y el cierre del día</p>
-                </div>
-              </div>
-              <Button variant="ghost" className="text-lime group-hover:bg-lime/10">
-                ¿Cierras el día?
-              </Button>
-            </div>
           </div>
         </motion.div>
 
