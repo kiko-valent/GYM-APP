@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import WeeklyPlan from '@/components/WeeklyPlan';
+import StepGoalTracker from '@/components/StepGoalTracker';
 import BottomNav from '@/components/BottomNav';
 import { supabase } from '@/lib/customSupabaseClient';
 
@@ -152,6 +153,9 @@ export default function DashboardPage() {
             )}
           </div>
         </motion.div>
+
+        {/* Weekly 15,000-step goal */}
+        <StepGoalTracker />
 
         {/* Weekly Plan */}
         <WeeklyPlan />
