@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, TrendingUp, Play, Utensils, Dumbbell } from 'lucide-react';
+import { Home, TrendingUp, Play, Dumbbell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -10,7 +10,6 @@ const tabs = [
   { path: '/dashboard', label: 'Inicio', icon: Home },
   { path: '/progress', label: 'Progreso', icon: TrendingUp },
   null, // hueco para el FAB
-  { path: '/nutrition', label: 'Alimentación', icon: Utensils },
   { path: '/settings', label: 'Rutina', icon: Dumbbell },
 ];
 
