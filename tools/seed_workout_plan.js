@@ -9,67 +9,61 @@ const email = 'fjavierizquierdocarreras@gmail.com';
 const password = 'Kikochelo13.';
 const userId = '7a863ecc-c1ec-480a-8ff5-eba35db67c26';
 
+// Rutina torso/pierna de definición (12 semanas) para Francisco.
+// Los nombres de los ejercicios existentes se mantienen para enlazar su historial de cargas.
 const planData = {
-  training_days: ['lunes', 'martes', 'miércoles', 'jueves', 'viernes'],
+  training_days: ['lunes', 'martes', 'jueves', 'sábado'],
   workouts: {
     lunes: {
-      name: 'PUSH A — Pecho · Hombro · Tríceps',
+      name: 'TORSO A',
       exercises: [
-        { name: 'Press con mancuernas en banco plano',      sets: 4, reps: 8,  weight: 0, description: 'Movimiento controlado' },
-        { name: 'Press pectoral en máquina (inclinado)',    sets: 3, reps: 10, weight: 0, description: 'Contracción en pico' },
-        { name: 'Press militar de pie con barra',           sets: 4, reps: 8,  weight: 0, description: 'Core apretado' },
-        { name: 'Elevaciones laterales con mancuerna',      sets: 4, reps: 12, weight: 0, description: 'Codos ligeramente flexionados' },
-        { name: 'Extensión de tríceps en polea (agarre V)', sets: 4, reps: 10, weight: 0, description: 'Codos pegados al cuerpo' },
-        { name: 'Plancha abdominal',                        sets: 3, reps: 30, weight: 0, description: 'Sin hundir caderas. 30-40 seg' },
-      ]
+        { name: 'Press banca con barra', sets: 3, repsMin: 6, repsMax: 8, rest: 150, weight: 0, description: 'RIR 1-2. Mantén técnica estable y evita el fallo.' },
+        { name: 'Press inclinado con mancuernas', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Ángulo 30-45°, contracción controlada.' },
+        { name: 'Remo en T o con apoyo en banco', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Remo con el pecho apoyado para reducir la demanda lumbar.' },
+        { name: 'Jalón al pecho agarre ancho', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Pecho hacia la barra y retracción escapular.' },
+        { name: 'Elevaciones laterales', sets: 3, repsMin: 12, repsMax: 20, rest: 75, weight: 0, description: 'Sin impulso; controla la bajada.' },
+        { name: 'Extensión de tríceps en polea', sets: 2, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Codos fijos y extensión completa.' },
+        { name: 'Curl con barra Z', sets: 2, repsMin: 10, repsMax: 15, rest: 75, weight: 0, description: 'Sin balancear la espalda.' },
+      ],
     },
     martes: {
-      name: 'PULL A — Espalda · Bíceps · Core',
+      name: 'PIERNA A',
       exercises: [
-        { name: 'Remo en barra con piernas estiradas', sets: 4, reps: 6,  weight: 0, description: 'Espalda recta, sin tirón' },
-        { name: 'Jalón al pecho agarre ancho',          sets: 3, reps: 8,  weight: 0, description: 'Pecho hacia la barra' },
-        { name: 'Remo unilateral con mancuerna',        sets: 4, reps: 8,  weight: 0, description: 'Apoyo sólido en banco' },
-        { name: 'Remo en máquina',                      sets: 3, reps: 10, weight: 0, description: 'Retracción escapular' },
-        { name: 'Curl de bíceps con barra Z',           sets: 4, reps: 10, weight: 0, description: 'Sin balanceo de espalda' },
-        { name: 'Sit-ups o encogimientos',              sets: 3, reps: 15, weight: 0, description: 'Movimiento lento' },
-      ]
-    },
-    'miércoles': {
-      name: 'LEGS A — Cuádriceps · Femoral · Gemelo',
-      exercises: [
-        { name: 'Sentadilla con barra',                   sets: 4, reps: 6,  weight: 0, description: 'Empieza ligero, técnica primero' },
-        { name: 'Peso muerto rumano con barra',           sets: 3, reps: 8,  weight: 0, description: 'Bisagra de cadera limpia' },
-        { name: 'Prensa horizontal en máquina',           sets: 3, reps: 10, weight: 0, description: 'Pies separados a anchura de hombros' },
-        { name: 'Extensión de rodilla en máquina',        sets: 3, reps: 12, weight: 0, description: 'Rango completo' },
-        { name: 'Curl femoral tumbado en máquina',        sets: 3, reps: 10, weight: 0, description: 'Añadido para equilibrio quad/femoral' },
-        { name: 'Elevación de gemelo de pie',             sets: 4, reps: 15, weight: 0, description: 'Rango completo, pausa arriba' },
-        { name: 'Plancha lateral',                        sets: 3, reps: 25, weight: 0, description: 'Cadera alineada. 25-30 seg/lado' },
-      ]
+        { name: 'Prensa inclinada', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Pies a anchura de hombros y recorrido controlado.' },
+        { name: 'Hack squat o sentadilla búlgara', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Por pierna si eliges la sentadilla búlgara.' },
+        { name: 'Curl femoral sentado', sets: 3, repsMin: 10, repsMax: 15, rest: 75, weight: 0, description: 'Rango completo y contracción controlada.' },
+        { name: 'Hip thrust con barra', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Extensión completa de cadera sin hiperextender la espalda.' },
+        { name: 'Gemelo sentado', sets: 3, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Pausa en el estiramiento y arriba.' },
+        { name: 'Abdominales en polea', sets: 3, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Flexiona el tronco sin tirar con los brazos.' },
+      ],
     },
     jueves: {
-      name: 'PUSH B — Pecho · Hombro · Tríceps',
+      name: 'TORSO B',
       exercises: [
-        { name: 'Press con mancuernas en banco inclinado', sets: 4, reps: 8,  weight: 0, description: 'Ángulo 30-45°' },
-        { name: 'Aperturas en máquina (pec deck)',         sets: 3, reps: 12, weight: 0, description: 'Amplitud máxima controlada' },
-        { name: 'Press Arnold con mancuernas',             sets: 4, reps: 10, weight: 0, description: 'Rotación de muñeca completa' },
-        { name: 'Elevaciones frontales con mancuerna',     sets: 3, reps: 12, weight: 0, description: 'Alternadas, sin impulso' },
-        { name: 'Extensión de codo en polea (cuerda)',     sets: 4, reps: 10, weight: 0, description: 'Separar cuerda abajo del todo' },
-        { name: 'Plancha abdominal',                       sets: 3, reps: 35, weight: 0, description: 'Progresión vs lunes. 35-45 seg' },
-      ]
+        { name: 'Press inclinado con barra', sets: 3, repsMin: 6, repsMax: 10, rest: 150, weight: 0, description: 'RIR 1-2 y recorrido completo.' },
+        { name: 'Press de pecho en máquina', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Mantén las escápulas estables y controla la bajada.' },
+        { name: 'Dominadas asistidas o jalón supino', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Usa asistencia si hace falta para completar el rango.' },
+        { name: 'Remo sentado en polea', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'No balancees el torso; aprieta la espalda.' },
+        { name: 'Reverse pec deck', sets: 3, repsMin: 12, repsMax: 20, rest: 75, weight: 0, description: 'Trabajo estable del deltoides posterior.' },
+        { name: 'Elevaciones laterales en polea', sets: 3, repsMin: 12, repsMax: 20, rest: 60, weight: 0, description: 'Tensión constante y movimiento controlado.' },
+        { name: 'Extensión de tríceps sobre la cabeza', sets: 2, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Codos orientados al frente y recorrido completo.' },
+        { name: 'Curl inclinado con mancuernas', sets: 2, repsMin: 10, repsMax: 15, rest: 75, weight: 0, description: 'Banco a 45° y supinación controlada.' },
+      ],
     },
-    viernes: {
-      name: 'PULL B — Espalda · Bíceps · Core',
+    sábado: {
+      name: 'PIERNA B',
       exercises: [
-        { name: 'Dominadas asistidas o jalón supino',     sets: 4, reps: 6,  weight: 0, description: 'Si puedes, dominadas' },
-        { name: 'Remo en polea baja (agarre neutro)',      sets: 4, reps: 10, weight: 0, description: 'Pecho erguido' },
-        { name: 'Pull-over con mancuerna',                 sets: 3, reps: 12, weight: 0, description: 'Trabaja dorsal y serrato' },
-        { name: 'Face pulls en polea alta',                sets: 3, reps: 15, weight: 0, description: 'Salud del manguito rotador' },
-        { name: 'Curl de bíceps con mancuernas alterno',  sets: 4, reps: 10, weight: 0, description: 'Supinación completa' },
-        { name: 'Hollow body hold o encogimientos',        sets: 3, reps: 20, weight: 0, description: 'Core profundo' },
-      ]
+        { name: 'Prensa inclinada', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Alternativa indicada al hack squat.' },
+        { name: 'Zancadas con mancuernas', sets: 2, repsMin: 8, repsMax: 12, rest: 90, weight: 0, description: 'Repeticiones por pierna, torso erguido.' },
+        { name: 'Hip thrust con barra', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Aprieta glúteos en la extensión completa.' },
+        { name: 'Curl femoral sentado', sets: 3, repsMin: 10, repsMax: 15, rest: 75, weight: 0, description: 'Rango completo, sin compensar con la cadera.' },
+        { name: 'Extensión de cuádriceps', sets: 2, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Pausa breve en la extensión.' },
+        { name: 'Gemelo sentado', sets: 3, repsMin: 12, repsMax: 20, rest: 60, weight: 0, description: 'Recorrido completo y pausas controladas.' },
+        { name: 'Elevaciones de piernas colgado', sets: 3, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Sin balanceo y con retroversión de pelvis.' },
+      ],
     },
   },
-  preferences: { trackIntensity: false }
+  preferences: { trackIntensity: true },
 };
 
 async function seedWorkoutPlan() {
@@ -89,7 +83,7 @@ async function seedWorkoutPlan() {
     global: { headers: { Authorization: `Bearer ${session.access_token}` } }
   });
 
-  console.log('Actualizando plan de entrenamiento para kiko...');
+  console.log('Actualizando plan de entrenamiento para Francisco...');
 
   const { data, error } = await authedClient
     .from('user_plans')
