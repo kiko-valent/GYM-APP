@@ -21,6 +21,7 @@ export const MUSCLE_GROUPS = [
   { value: 'cuadriceps', label: 'Cuádriceps' },
   { value: 'femoral', label: 'Femoral' },
   { value: 'gluteo', label: 'Glúteo' },
+  { value: 'gemelo', label: 'Gemelo' },
   { value: 'core', label: 'Core' },
   { value: 'otro', label: 'Otro' },
 ];
