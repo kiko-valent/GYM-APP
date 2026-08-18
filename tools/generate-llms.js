@@ -2,6 +2,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
 
 const CLEAN_CONTENT_REGEX = {
   comments: /\/\*[\s\S]*?\*\/|\/\/.*$/gm,
@@ -103,8 +104,8 @@ function extractHelmetData(content, filePath, routes) {
   const description = cleanText(descMatch?.[1]);
   
   const fileName = path.basename(filePath, path.extname(filePath));
-  const url = routes.length && routes.has(fileName) 
-    ? routes.get(fileName) 
+  const url = routes instanceof Map && routes.has(fileName)
+    ? routes.get(fileName)
     : generateFallbackUrl(fileName);
   
   return {
@@ -151,7 +152,7 @@ function main() {
   let pages = [];
   
   if (!fs.existsSync(pagesDir)) {
-    pages.push(processPageFile(appJsxPath, []))
+    pages.push(processPageFile(appJsxPath, new Map()))
     pages = pages.filter(Boolean);
   } else {
     const routes = extractRoutes(appJsxPath);
@@ -160,11 +161,16 @@ function main() {
     pages = reactFiles
       .map(filePath => processPageFile(filePath, routes))
       .filter(Boolean);
+
+    // Ninguna página declara su propio Helmet: usamos el de App.jsx como metadato global.
+    if (pages.length === 0) {
+      pages = [processPageFile(appJsxPath, routes)].filter(Boolean);
+    }
   }
 
   if (pages.length === 0) {
-    console.error('❌ No pages with Helmet components found!');
-    process.exit(1);
+    console.warn('⚠️  No se encontraron páginas con Helmet; se omite la generación de llms.txt.');
+    return;
   }
 
 
@@ -175,7 +181,8 @@ function main() {
   fs.writeFileSync(outputPath, llmsTxtContent, 'utf8');
 }
 
-const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+// En Windows la ruta de argv[1] es C:\... y no coincide con la URL file:// sin convertirla.
+const isMainModule = import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isMainModule) {
   main();

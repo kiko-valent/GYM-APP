@@ -36,6 +36,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Ficheros temporales de procesado
+.tmp
+
 # Cache
 .cache
 .eslintcache

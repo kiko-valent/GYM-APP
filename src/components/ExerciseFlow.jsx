@@ -30,6 +30,9 @@ export default function ExerciseFlow({
         // For now, we just save the macro state here. Detailed state is saved in handleSetProgress.
       });
     }
+    // onProgressUpdate es un prop que el padre puede recrear en cada render; incluirlo
+    // en las dependencias reejecutaría el efecto en bucle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentExerciseIndex, showRestTimer, completedExercisesData]);
 
   const handleSetProgress = (currentSets) => {
@@ -62,8 +65,6 @@ export default function ExerciseFlow({
   // Back Logic
   const handleRestBack = () => {
     // User wants to go back to the exercise they just finished to fix something
-    const lastExercise = completedExercisesData[completedExercisesData.length - 1];
-    
     // Remove the last completed exercise from the list
     const newCompletedData = completedExercisesData.slice(0, -1);
     setCompletedExercisesData(newCompletedData);
@@ -80,9 +81,6 @@ export default function ExerciseFlow({
     // User is in SetTracker (Set 1) and wants to go back to PREVIOUS exercise
     if (currentExerciseIndex > 0) {
       const prevIndex = currentExerciseIndex - 1;
-      
-      // Get the data of the previous exercise to let user edit it
-      const prevExerciseData = completedExercisesData[completedExercisesData.length - 1];
       
       // Remove it from completed list
       const newCompletedData = completedExercisesData.slice(0, -1);

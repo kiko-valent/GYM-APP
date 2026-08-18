@@ -29,7 +29,7 @@ export default function ProfilePage() {
       setLoading(true);
 
       // Fetch Profile
-      const { data: profileData, error: profileError } = await supabase
+      const { data: profileData } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', user.id)
@@ -37,7 +37,7 @@ export default function ProfilePage() {
       if (profileData) setProfile(profileData);
       // Fetch Today's Nutrition
       const today = new Date().toLocaleDateString('en-CA');
-      const { data: nutritionData, error: nutritionError } = await supabase
+      const { data: nutritionData } = await supabase
         .from('user_nutrition')
         .select('*')
         .eq('user_id', user.id)
@@ -46,7 +46,7 @@ export default function ProfilePage() {
       if (nutritionData) setNutrition(nutritionData);
 
       // Fetch Weight History
-      const { data: weightData, error: weightError } = await supabase
+      const { data: weightData } = await supabase
         .from('weight_history')
         .select('*')
         .eq('user_id', user.id)

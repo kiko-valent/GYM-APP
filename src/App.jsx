@@ -10,8 +10,6 @@ import WorkoutPage from '@/pages/WorkoutPage';
 import ProgressPage from '@/pages/ProgressPage';
 import SettingsPage from '@/pages/SettingsPage';
 import ProfilePage from '@/pages/ProfilePage';
-import CalorieCalculatorPage from '@/pages/CalorieCalculatorPage';
-import NutritionPage from '@/pages/NutritionPage';
 import ErrorNotification from '@/components/ErrorNotification';
 
 function PrivateRoute({ children }) {
@@ -61,9 +59,9 @@ function App() {
             <Route path="/progress" element={<PrivateRoute><ProgressPage /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-            <Route path="/calculator" element={<PrivateRoute><CalorieCalculatorPage /></PrivateRoute>} />
-            <Route path="/nutrition" element={<PrivateRoute><NutritionPage /></PrivateRoute>} />
             <Route path="/" element={<Navigate to="/login" />} />
+            {/* Cualquier ruta desconocida (p. ej. marcadores antiguos) vuelve al inicio */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <Toaster />
           <ErrorNotification />

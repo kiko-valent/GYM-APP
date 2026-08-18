@@ -65,7 +65,7 @@ export default function WorkoutPage() {
 
     const loadProgress = async () => {
       // Try Supabase first
-      const { exercisesState: supabaseState, error } = await loadWorkoutProgressFromSupabase(user.id, day);
+      const { exercisesState: supabaseState } = await loadWorkoutProgressFromSupabase(user.id, day);
 
       if (supabaseState && Object.keys(supabaseState).length > 0) {
         // Merge with initial state to ensure all exercises have entries

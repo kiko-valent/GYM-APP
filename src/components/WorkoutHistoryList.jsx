@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, ChevronDown, ChevronUp, Dumbbell, StickyNote, Activity, Download, Trash2 } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Dumbbell, StickyNote, Download, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { generateWorkoutPDF } from '@/utils/pdfGenerator';
 import {

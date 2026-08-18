@@ -1,16 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
 import assert from 'node:assert/strict';
 
-const SUPABASE_URL = 'https://gnxclqonizujxckbbtgb.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdueGNscW9uaXp1anhja2JidGdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyOTAzNjMsImV4cCI6MjA3Nzg2NjM2M30.sZpXEBrGouJNeKqMrRoyQsq_cpA63J5GCyrapg5NIfI';
+// Credenciales fuera del repositorio. Ejecutar con:
+//   node --env-file=.env tools/seed_workout_plan.js
+// (ver .env.example para las variables necesarias)
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://gnxclqonizujxckbbtgb.supabase.co';
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const email = process.env.SEED_USER_EMAIL;
+const password = process.env.SEED_USER_PASSWORD;
+const userId = process.env.SEED_USER_ID;
+
+const missing = Object.entries({
+  VITE_SUPABASE_ANON_KEY: SUPABASE_KEY,
+  SEED_USER_EMAIL: email,
+  SEED_USER_PASSWORD: password,
+  SEED_USER_ID: userId,
+}).filter(([, value]) => !value).map(([key]) => key);
+
+if (missing.length > 0) {
+  console.error(`Faltan variables de entorno: ${missing.join(', ')}`);
+  console.error('Copia .env.example a .env, rellena los valores y ejecuta:');
+  console.error('  node --env-file=.env tools/seed_workout_plan.js');
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false },
 });
-
-const email = 'fjavierizquierdocarreras@gmail.com';
-const password = 'Kikochelo13.';
-const userId = '7a863ecc-c1ec-480a-8ff5-eba35db67c26';
 
 // Rutina torso/pierna de definición para Francisco.
 // Este script solo reemplaza la rutina actual. No modifica sesiones ni progreso histórico.

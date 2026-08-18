@@ -34,8 +34,20 @@ npm run build
 ## 📝 Scripts
 
 - `npm run dev` - Servidor de desarrollo
-- `npm run build` - Build de producción
+- `npm run build` - Build de producción (genera `public/llms.txt` y compila con Vite)
 - `npm run preview` - Preview del build
+- `npm run lint` - ESLint sobre `src/`
+
+## 🔑 Variables de entorno
+
+Los scripts de `tools/` necesitan credenciales que **no** se guardan en el repositorio.
+Copia `.env.example` a `.env`, rellena los valores y ejecuta los scripts así:
+
+```bash
+node --env-file=.env tools/seed_workout_plan.js
+```
+
+La app web no necesita `.env`: usa la clave anon pública de Supabase, protegida por RLS.
 
 ## 📊 Estructura
 

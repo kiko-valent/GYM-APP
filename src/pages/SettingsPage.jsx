@@ -9,7 +9,6 @@ import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { getUserPlan, updateUserPlan, normalizePlanData } from '@/utils/workoutData';
 import { useToast } from "@/components/ui/use-toast.js";
-import VideoUpload from '@/components/VideoUpload.jsx';
 import BottomNav from '@/components/BottomNav.jsx';
 import { MUSCLE_GROUPS } from '@/utils/progression';
 
