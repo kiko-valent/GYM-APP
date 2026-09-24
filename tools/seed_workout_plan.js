@@ -36,9 +36,8 @@ const planData = {
     lunes: {
       name: 'TORSO A',
       exercises: [
-        { name: 'Press banca con barra', muscleGroup: 'pecho', sets: 3, repsMin: 6, repsMax: 8, rest: 150, weight: 0, description: 'RIR 1-2. Mantén técnica estable y evita el fallo.' },
-        { name: 'Fondos en paralelas con lastre', muscleGroup: 'pecho', sets: 3, repsMin: 6, repsMax: 10, rest: 150, weight: 0, description: 'Torso inclinado hacia delante para cargar el pecho. Empieza con el peso corporal y añade lastre cuando pases de 10 reps limpias. RIR 1-2.' },
-        { name: 'Press inclinado con mancuernas', muscleGroup: 'pecho', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Ángulo 30-45°, contracción controlada.' },
+        { name: 'Press inclinado con barra', muscleGroup: 'pecho', sets: 3, repsMin: 6, repsMax: 8, rest: 150, weight: 0, description: 'Con barra libre o en Smith. Banco a 30°, RIR 1-2. Es el básico prioritario del día.' },
+        { name: 'Press plano con mancuernas', muscleGroup: 'pecho', sets: 3, repsMin: 8, repsMax: 10, rest: 150, weight: 0, description: 'Baja hasta estirar el pecho sin perder la retracción escapular. RIR 1-2.' },
         { name: 'Remo con pecho apoyado', muscleGroup: 'espalda', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Mantén el pecho apoyado y controla el recorrido.' },
         { name: 'Jalón al pecho', muscleGroup: 'espalda', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Pecho hacia la barra y retracción escapular.' },
         { name: 'Elevaciones laterales', muscleGroup: 'hombro', sets: 3, repsMin: 12, repsMax: 20, rest: 75, weight: 0, description: 'Sin impulso; controla la bajada.' },
@@ -49,19 +48,20 @@ const planData = {
     martes: {
       name: 'PIERNA A',
       exercises: [
-        { name: 'Prensa o hack squat', muscleGroup: 'cuadriceps', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Pies a anchura de hombros y recorrido controlado.' },
+        { name: 'Hack squat o prensa', muscleGroup: 'cuadriceps', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Pies a anchura de hombros y recorrido controlado.' },
         { name: 'Sentadilla búlgara', muscleGroup: 'cuadriceps', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: '8-12 repeticiones por pierna.' },
-        { name: 'Curl femoral sentado o tumbado', muscleGroup: 'femoral', sets: 3, repsMin: 10, repsMax: 15, rest: 75, weight: 0, description: 'Rango completo y contracción controlada.' },
+        { name: 'Curl femoral', muscleGroup: 'femoral', sets: 3, repsMin: 10, repsMax: 15, rest: 75, weight: 0, description: 'Sentado o tumbado. Rango completo y contracción controlada.' },
         { name: 'Hip thrust', muscleGroup: 'gluteo', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Extensión completa de cadera sin hiperextender la espalda.' },
         { name: 'Gemelos', muscleGroup: 'gemelo', sets: 3, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Pausa en el estiramiento y arriba.' },
-        { name: 'Abdominales en polea', muscleGroup: 'core', sets: 3, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Flexiona el tronco sin tirar con los brazos.' },
+        { name: 'Crunch en polea', muscleGroup: 'core', sets: 3, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Flexiona el tronco sin tirar con los brazos.' },
       ],
     },
     jueves: {
       name: 'TORSO B',
       exercises: [
-        { name: 'Press inclinado con barra', muscleGroup: 'pecho', sets: 3, repsMin: 6, repsMax: 10, rest: 150, weight: 0, description: 'RIR 1-2 y recorrido completo.' },
+        { name: 'Press inclinado con mancuernas', muscleGroup: 'pecho', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Ángulo 30-45°, contracción controlada. Prioriza pecho superior.' },
         { name: 'Press de pecho en máquina', muscleGroup: 'pecho', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Mantén las escápulas estables y controla la bajada.' },
+        { name: 'Aperturas en polea de abajo hacia arriba', muscleGroup: 'pecho', sets: 2, repsMin: 12, repsMax: 15, rest: 75, weight: 0, description: 'Poleas bajas cruzando hacia arriba: busca amplitud y estiramiento, codos algo flexionados y fijos.' },
         { name: 'Dominadas asistidas o jalón', muscleGroup: 'espalda', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'Usa asistencia si hace falta para completar el rango.' },
         { name: 'Remo sentado en polea', muscleGroup: 'espalda', sets: 3, repsMin: 8, repsMax: 12, rest: 120, weight: 0, description: 'No balancees el torso; aprieta la espalda.' },
         { name: 'Reverse pec deck', muscleGroup: 'hombro', sets: 3, repsMin: 12, repsMax: 20, rest: 75, weight: 0, description: 'Trabajo estable del deltoides posterior.' },
@@ -79,7 +79,7 @@ const planData = {
         { name: 'Curl femoral', muscleGroup: 'femoral', sets: 3, repsMin: 10, repsMax: 15, rest: 75, weight: 0, description: 'Rango completo, sin compensar con la cadera.' },
         { name: 'Extensión de cuádriceps', muscleGroup: 'cuadriceps', sets: 2, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Pausa breve en la extensión.' },
         { name: 'Gemelo sentado', muscleGroup: 'gemelo', sets: 3, repsMin: 12, repsMax: 20, rest: 60, weight: 0, description: 'Recorrido completo y pausas controladas.' },
-        { name: 'Elevaciones de rodillas o piernas', muscleGroup: 'core', sets: 3, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Sin balanceo y con retroversión de pelvis.' },
+        { name: 'Elevación de piernas', muscleGroup: 'core', sets: 3, repsMin: 10, repsMax: 15, rest: 60, weight: 0, description: 'Sin balanceo y con retroversión de pelvis.' },
       ],
     },
   },
