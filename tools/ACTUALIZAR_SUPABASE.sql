@@ -76,17 +76,17 @@ drop policy if exists "update_workout_progress" on workout_progress;
 drop policy if exists "delete_workout_progress" on workout_progress;
 
 -- Policies
-create policy "select_workout_progress" on workout_progress 
+create policy "select_workout_progress" on workout_progress
   for select using (auth.uid() = user_id);
-create policy "insert_workout_progress" on workout_progress 
+create policy "insert_workout_progress" on workout_progress
   for insert with check (auth.uid() = user_id);
-create policy "update_workout_progress" on workout_progress 
+create policy "update_workout_progress" on workout_progress
   for update using (auth.uid() = user_id);
-create policy "delete_workout_progress" on workout_progress 
+create policy "delete_workout_progress" on workout_progress
   for delete using (auth.uid() = user_id);
 
 -- Index for fast lookups
-create index if not exists idx_workout_progress_user_day 
+create index if not exists idx_workout_progress_user_day
   on workout_progress(user_id, day, workout_date);
 
 -- =====================================================
