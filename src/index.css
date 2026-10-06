@@ -106,8 +106,6 @@ input[type="number"] { -moz-appearance: textfield; }
 .today-hero h2 { letter-spacing: -.04em; line-height: 1.08; }
 .hero-label { display: flex; justify-content: space-between; align-items: center; }
 .hero-label > svg { opacity: .8; }
-.barcode-motif { height: 38px; width: 180px; max-width: 100%; opacity: .75; background: repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 5px, currentColor 5px 6px, transparent 6px 9px, currentColor 9px 12px, transparent 12px 16px); mask-image: linear-gradient(90deg, #000, #000 55%, transparent); }
-.today-hero .barcode-motif { margin-top: 24px; height: 26px; }
 .tone-lavender { background: #d2c9ff; color: var(--bg-primary); }
 .tone-mint { background: #ddffc4; color: var(--bg-primary); }
 .tone-coral { background: #ffab9d; color: var(--bg-primary); }
@@ -148,7 +146,6 @@ input[type="number"] { -moz-appearance: textfield; }
 .auth-feature { background: var(--accent-lime); color: var(--bg-primary); border-radius: 30px; padding: 25px; margin-top: 30px; }
 .auth-feature .eyebrow { color: #59621b; font-size: 9px; }
 .auth-feature h2 { font-size: 27px; font-weight: 650; line-height: 1.1; letter-spacing: -.04em; margin-top: 10px; }
-.auth-feature .barcode-motif { margin-top: 24px; }
 .auth-feature-footer { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(13,10,20,.12); }
 .auth-pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
 .auth-pills span { border-radius: 18px; padding: 16px 8px; text-align: center; font-size: 12px; font-weight: 600; }
@@ -177,7 +174,6 @@ input[type="number"] { -moz-appearance: textfield; }
   .auth-welcome > p:last-child { display: none; }
   .auth-feature { padding: 18px 20px; margin-top: 22px; border-radius: 26px; }
   .auth-feature h2 { font-size: 23px; }
-  .auth-feature .barcode-motif { height: 14px; margin-top: 12px; width: 140px; }
   .auth-feature-footer { display: none; }
   .auth-pills span { padding: 11px 6px; border-radius: 15px; font-size: 11px; }
   .auth-form-panel { padding: 28px 24px calc(28px + env(safe-area-inset-bottom)); }
