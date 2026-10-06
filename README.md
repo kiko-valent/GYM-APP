@@ -4,6 +4,10 @@ Aplicación personal de Francisco Javier para registrar su rutina, seguir el ren
 
 ## Uso diario
 
+La interfaz sigue la referencia visual de Kiko: fondo casi negro con matiz violeta, tarjetas redondeadas, lima para la acción principal y tonos lavanda, menta y coral para los datos. Inicio, Rutina, Entrenamiento, Progreso, Perfil, acceso y registro comparten la misma paleta. La navegación inferior usa una cápsula flotante y conserva sus etiquetas.
+
+La revisión del diseño se hizo en móvil de 390 px y escritorio. En la demo aislada se comprobó editar y guardar un incremento de carga, registrar 62,5 kg, recuperar serie y descanso al recargar y finalizar la sesión. En el acceso real se revisaron el formulario, la visibilidad de la contraseña y el enlace al registro; no se enviaron credenciales ni se crearon cuentas. El rediseño no requiere nuevas migraciones ni cambia la rutina guardada.
+
 - **Hoy:** entrenamiento previsto o descanso, constancia semanal, pesaje del día y objetivos personales. Un segundo pesaje corrige el del mismo día.
 - **Entrenar:** un ejercicio cada vez, peso y repeticiones con controles grandes, RIR opcional, referencia anterior y revisión de series registradas.
 - **Rutina:** días, ejercicios, repeticiones, descanso e incremento de carga. Los cambios se validan y solo aparecen como guardados cuando el servidor los confirma.

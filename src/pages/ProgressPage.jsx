@@ -2,7 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { getPersonalData } from '@/utils/personalData';
 import WeightTrend from '@/components/WeightTrend';
 import BottomNav from '@/components/BottomNav';
-import { motion } from 'framer-motion';
+import ScreenHeader from '@/components/ScreenHeader';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { getWorkoutHistory, deleteWorkoutSession } from '@/utils/workoutData';
 import { useToast } from '@/components/ui/use-toast';
@@ -64,14 +64,7 @@ export default function ProgressPage() {
   return (
     <div className="page-shell max-w-5xl">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <p className="eyebrow">DATOS PARA DECIDIR</p><h1 className="text-3xl font-bold text-white mt-2">Tu progreso</h1><p className="text-secondary text-sm mt-2">La tendencia del peso y tu rendimiento, juntos.</p>
-        </motion.div>
+        <ScreenHeader title="Tu progreso" eyebrow="DATOS PARA DECIDIR" description="La tendencia de tu peso y tu rendimiento, juntos." back/>
 
         {loading ? (
           <div className="flex items-center justify-center py-20">

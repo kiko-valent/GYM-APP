@@ -144,18 +144,18 @@ export default function FatigueInsights({ history }) {
         {hasChartData ? (
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={weeks} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#8E99A4', fontSize: 11 }} dy={8} />
-              <YAxis domain={[0, 5]} axisLine={false} tickLine={false} tick={{ fill: '#8E99A4', fontSize: 11 }} />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#b0aaba', fontSize: 11 }} dy={8} />
+              <YAxis domain={[0, 5]} axisLine={false} tickLine={false} tick={{ fill: '#b0aaba', fontSize: 11 }} />
               <Tooltip content={<ChartTooltip />} />
               <Legend
                 formatter={(value) => (
-                  <span style={{ color: '#8E99A4', fontSize: 12 }}>
+                  <span style={{ color: '#b0aaba', fontSize: 12 }}>
                     {value === 'rir' ? 'RIR medio (0-3+)' : 'Sensación (1-5)'}
                   </span>
                 )}
               />
-              <Line type="monotone" dataKey="rir" stroke="#00C2FF" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-              <Line type="monotone" dataKey="feeling" stroke="#D2FF00" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+              <Line type="monotone" dataKey="rir" stroke="#d2c9ff" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+              <Line type="monotone" dataKey="feeling" stroke="#f1ff65" strokeWidth={2} dot={{ r: 3 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         ) : (

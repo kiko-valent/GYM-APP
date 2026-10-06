@@ -33,7 +33,7 @@ export default function WorkoutEvaluation({ onComplete, saving = false, exercise
     >
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="bg-gradient-to-br from-lime to-cyan w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+        <div className="bg-lime w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
           <Star className="w-10 h-10 text-dark-bg" fill="currentColor" />
         </div>
         <h2 className="text-2xl md:text-3xl font-bold mb-2">
@@ -45,14 +45,15 @@ export default function WorkoutEvaluation({ onComplete, saving = false, exercise
 
       {/* Feelings Grid */}
       <div className="space-y-6 mb-8">
-        <div className="grid grid-cols-5 gap-2 md:gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 md:gap-3">
           {feelings.map(feeling => (
             <motion.button
               key={feeling.value}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setSelectedFeeling(feeling.value)} disabled={saving}
-              className={`p-3 md:p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${selectedFeeling === feeling.value
+              aria-pressed={selectedFeeling === feeling.value}
+              className={`p-3 md:p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${selectedFeeling === feeling.value
                   ? 'bg-dark-card-lighter border-lime shadow-lg'
                   : 'bg-dark-bg border-dark-border hover:border-dark-border/80 hover:bg-dark-card-lighter/50'
                 }`}
@@ -72,9 +73,10 @@ export default function WorkoutEvaluation({ onComplete, saving = false, exercise
         <div className="space-y-2">
           <div className="flex items-center gap-2 mb-2">
             <MessageSquare className="w-5 h-5 text-cyan" />
-            <span className="text-white font-medium">Notas</span>
+            <label htmlFor="workout-notes" className="text-white font-medium">Notas</label>
           </div>
           <Textarea
+            id="workout-notes"
             value={notes} disabled={saving}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="¿Algo que quieras recordar sobre este entrenamiento?"

@@ -46,7 +46,7 @@ export default function ExerciseNavChips({
 
     if (isActive) {
       // Active chip - Lime green
-      baseClasses += 'bg-lime text-dark-bg font-bold shadow-lime-glow';
+      baseClasses += 'bg-lime text-dark-bg font-bold ';
     } else if (status === 'completed') {
       // Completed - Cyan outline
       baseClasses += 'bg-transparent border-2 border-cyan text-cyan hover:bg-cyan/10';

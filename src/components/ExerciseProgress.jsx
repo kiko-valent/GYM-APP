@@ -126,21 +126,21 @@ export default function ExerciseProgress({ history }) {
                     <AreaChart data={chartData} margin={{ top: 10, right: 5, left: 5, bottom: 0 }}>
                       <defs>
                         <linearGradient id={`grad-${ex.name.replace(/\W/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#D2FF00" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#D2FF00" stopOpacity={0} />
+                          <stop offset="0%" stopColor="#f1ff65" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="#f1ff65" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#8E99A4', fontSize: 11 }} dy={8} />
+                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#b0aaba', fontSize: 11 }} dy={8} />
                       <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
                       <Tooltip content={<ChartTooltip />} />
                       <Area
                         type="monotone"
                         dataKey="e1rm"
-                        stroke="#D2FF00"
+                        stroke="#f1ff65"
                         strokeWidth={2}
                         fill={`url(#grad-${ex.name.replace(/\W/g, '')})`}
-                        dot={{ r: 3, fill: '#D2FF00', strokeWidth: 0 }}
-                        activeDot={{ r: 5, fill: '#D2FF00', stroke: '#0B1116', strokeWidth: 2 }}
+                        dot={{ r: 3, fill: '#f1ff65', strokeWidth: 0 }}
+                        activeDot={{ r: 5, fill: '#f1ff65', stroke: '#0d0a14', strokeWidth: 2 }}
                       />
                     </AreaChart>
                   </ResponsiveContainer>

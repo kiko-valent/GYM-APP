@@ -1,7 +1,7 @@
+import ScreenHeader from '@/components/ScreenHeader';
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Trash2, PlusCircle, Save, Loader2, AlertCircle, StickyNote, Gauge, Target, Calendar, ChevronUp, ChevronDown, Video } from 'lucide-react';
+import { Trash2, PlusCircle, Save, Loader2, AlertCircle, StickyNote, Gauge, Target, Calendar, ChevronUp, ChevronDown, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
@@ -17,7 +17,6 @@ import { newId, readLocal, writeLocal, removeLocal } from '@/lib/localStore';
 const allDays = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 
 export default function SettingsPage() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -94,7 +93,7 @@ export default function SettingsPage() {
 
   // UI State Helper
   const getSaveStatusDisplay = () => {
-    if (isSaving) return <span className="flex items-center text-blue-400 text-sm font-medium"><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Guardando...</span>;
+    if (isSaving) return <span className="flex items-center text-cyan text-sm font-medium"><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Guardando...</span>;
     if (isDirty) return <span className="flex items-center text-amber-400 text-sm font-medium"><AlertCircle className="w-4 h-4 mr-2" /> Cambios sin guardar</span>;
     return null;
   };
@@ -242,49 +241,20 @@ export default function SettingsPage() {
   return (
     <div className="page-shell">
       <div className="max-w-4xl mx-auto">
-        {/* Header with Save Status */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8"
-        >
-          <div className="flex items-center gap-4">
-            <Button onClick={() => navigate('/dashboard')} aria-label="Volver a Hoy" variant="outline" className="bg-dark-card border-dark-border text-white hover:bg-dark-card-lighter">
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-white">Mi Rutina</h1>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                <p className="text-secondary">Tu rutina actual. Ajusta solo lo que necesites.</p>
-                <div className="hidden md:block h-4 w-px bg-white/20"></div>
-                <div className="min-h-[24px] flex items-center">
-                  {getSaveStatusDisplay()}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <Button
-            onClick={handleManualSave}
-            disabled={isSaving || !isDirty}
-            className={`w-full md:w-auto ${isDirty ? 'bg-amber-500 hover:bg-amber-600' : 'bg-white/10 text-white/50 cursor-not-allowed'} text-white font-semibold py-2 px-6 rounded-xl transition-all shadow-lg`}
-          >
-            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            {isDirty ? 'Guardar Cambios' : 'Sin Cambios'}
-          </Button>
-        </motion.div>
+        <ScreenHeader title="Mi rutina" eyebrow="TU PLAN, A MANO" description="Tu rutina actual. Ajusta solo lo que necesites." back/>
+        <div className="flex items-center justify-between gap-4 mb-6"><div role="status">{getSaveStatusDisplay()}</div><Button onClick={handleManualSave} disabled={isSaving || !isDirty} className="bg-lime text-dark-bg hover:bg-lime-dark font-semibold px-5 disabled:bg-dark-card-lighter disabled:text-secondary">{isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Save className="w-4 h-4 mr-2"/>}{isDirty ? 'Guardar cambios' : 'Sin cambios'}</Button></div>
 
         {/* Preferences Section */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20 mb-8">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card-dark p-6 mb-8">
           <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <Gauge className="w-5 h-5 text-blue-400" /> Preferencias de Entrenamiento
+            <Gauge className="w-5 h-5 text-cyan" /> Preferencias de Entrenamiento
           </h2>
           <div className="flex items-center space-x-2 bg-white/5 p-4 rounded-xl border border-white/10">
             <Checkbox
               id="rir-rpe"
               checked={plan.preferences?.trackIntensity || false}
               onCheckedChange={handlePreferenceChange}
-              className="border-white/50 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+              className="border-white/50 data-[state=checked]:bg-lime data-[state=checked]:border-lime data-[state=checked]:text-dark-bg"
             />
             <Label htmlFor="rir-rpe" className="text-white cursor-pointer flex-1">
               <span className="font-semibold block mb-1">Registrar RIR (reps en reserva)</span>
@@ -321,7 +291,7 @@ export default function SettingsPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ delay: 0.2 + dayIndex * 0.05 }}
-              className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20 mb-6"
+              className="card-dark p-6 mb-6"
             >
               <details>
               <summary className="cursor-pointer capitalize font-bold text-xl py-2">{day}<span className="text-xs font-normal text-secondary ml-3">{plan.workouts[day]?.exercises.length || 0} ejercicios</span></summary>
@@ -527,8 +497,9 @@ export default function SettingsPage() {
           <Button
             onClick={handleManualSave}
             disabled={!isDirty}
+            aria-label="Guardar cambios de rutina"
             size="icon"
-            className={`h-14 w-14 rounded-full shadow-xl ${isDirty ? 'bg-lime glow-lime' : 'bg-dark-card-lighter cursor-not-allowed'}`}
+            className={`h-14 w-14 rounded-full shadow-xl ${isDirty ? 'bg-lime text-dark-bg' : 'bg-dark-card-lighter text-secondary cursor-not-allowed'}`}
           >
             {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
           </Button>

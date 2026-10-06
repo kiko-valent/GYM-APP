@@ -152,13 +152,13 @@ export default function WorkoutPage() {
   const index = Math.min(currentIndex, plan.exercises.length - 1);
   return <main className="page-shell max-w-2xl">
     <header className="flex items-center justify-between mb-6 gap-3">
-      <button onClick={() => navigate('/dashboard')} disabled={saving} className="flex items-center gap-2 text-secondary py-3"><ArrowLeft size={19} /> Pausar</button>
+      <button onClick={() => navigate('/dashboard')} disabled={saving} className="btn-dark-pill flex items-center gap-2 text-secondary px-4 py-3 text-sm"><ArrowLeft size={19} /> Pausar</button>
       <span className="text-xs text-secondary flex items-center gap-1.5" role="status">
         {syncStatus === 'local' ? <CloudOff size={15} /> : syncStatus === 'saving' ? <Loader2 size={15} className="animate-spin" /> : <Cloud size={15} />}
         {syncStatus === 'local' ? 'Guardado en este móvil' : syncStatus === 'saving' ? 'Sincronizando' : 'Sincronizado'}
       </span>
     </header>
-    <div className="mb-6"><p className="eyebrow capitalize">{day} · {plan.name || 'Tu entrenamiento'}</p><div className="flex justify-between my-2"><h1 className="text-xl font-bold">{isComplete ? 'Sesión completada' : 'Una serie cada vez'}</h1><span className="text-secondary text-sm">{completed}/{plan.exercises.length}</span></div><div className="h-1.5 bg-dark-card-lighter rounded-full overflow-hidden"><div className="h-full bg-lime transition-all" style={{ width: `${completed / plan.exercises.length * 100}%` }} /></div></div>
+    <div className="workout-heading mb-6"><p className="eyebrow capitalize">{day} · {plan.name || 'Tu entrenamiento'}</p><div className="flex justify-between my-2"><h1 className="text-xl font-bold">{isComplete ? 'Sesión completada' : 'Una serie cada vez'}</h1><span className="text-secondary text-sm">{completed}/{plan.exercises.length}</span></div><div className="workout-progress-track h-1.5 rounded-full overflow-hidden"><div className="workout-progress-fill h-full transition-all" style={{ width: `${completed / plan.exercises.length * 100}%` }} /></div></div>
     {isComplete ? <WorkoutEvaluation onComplete={finish} saving={saving} exercises={plan.exercises.map((ex, idx) => ({ ...ex, sets: exercisesState[idx]?.sets || [] }))} onBack={() => setIsComplete(false)} /> : <>
       <ExerciseNavChips exercises={plan.exercises} currentIndex={index} exercisesState={exercisesState} onNavigate={setCurrentIndex} />
       <SetTracker key={`${metadata.current.sessionKey}:${plan.exercises[index].id}`} exercise={plan.exercises[index]} userId={user.id}

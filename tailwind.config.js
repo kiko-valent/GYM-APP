@@ -19,20 +19,20 @@ module.exports = {
 			colors: {
 				// New Dark Modern Theme Colors
 				'dark': {
-					'bg': '#0B1116',
-					'card': '#161C22',
-					'card-lighter': '#1E262E',
-					'border': '#2A323C',
+					'bg': '#0d0a14',
+					'card': '#1a1723',
+					'card-lighter': '#24202f',
+					'border': '#373040',
 				},
 				'lime': {
-					DEFAULT: '#D2FF00',
-					'dark': '#B8E000',
-					'glow': 'rgba(210, 255, 0, 0.3)',
+					DEFAULT: '#f1ff65',
+					'dark': '#e1ef56',
+					'glow': 'rgba(241,255,101,.10)',
 				},
 				'cyan': {
-					DEFAULT: '#00C2FF',
-					'dark': '#00A3D9',
-					'glow': 'rgba(0, 194, 255, 0.3)',
+					DEFAULT: '#d2c9ff',
+					'dark': '#beb1f4',
+					'glow': 'rgba(210,201,255,.10)',
 				},
 				// Legacy shadcn/ui colors (keeping for compatibility)
 				border: 'hsl(var(--border))',

@@ -74,16 +74,16 @@ export default function ProgressStats({ history, userId }) {
       icon: Dumbbell,
       label: 'ENTRENAMIENTOS',
       value: totalWorkouts,
-      bgColor: 'bg-dark-card-lighter',
-      iconColor: 'text-cyan'
+      bgColor: 'bg-black/5',
+      iconColor: 'text-dark-bg'
     },
     {
       icon: Flame,
       label: 'RACHA',
       value: loading ? '...' : calculateStreak(),
       suffix: calculateStreak() === 1 ? 'día' : 'días',
-      bgColor: 'bg-dark-card-lighter',
-      iconColor: 'text-cyan'
+      bgColor: 'bg-black/5',
+      iconColor: 'text-dark-bg'
     },
   ];
 
@@ -95,15 +95,15 @@ export default function ProgressStats({ history, userId }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.1 }}
-          className="card-dark p-5"
+          className={`rounded-[28px] p-5 ${index === 0 ? 'tone-lavender' : 'tone-mint'}`}
         >
           <div className={`${stat.bgColor} w-10 h-10 rounded-xl flex items-center justify-center mb-3`}>
             <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
           </div>
-          <p className="label-uppercase text-xs mb-1">{stat.label}</p>
+          <p className="text-[10px] tracking-wider text-dark-bg/70 mb-1">{stat.label}</p>
           <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold text-white">{stat.value}</span>
-            {stat.suffix && <span className="text-secondary text-sm">{stat.suffix}</span>}
+            <span className="text-3xl font-bold text-dark-bg">{stat.value}</span>
+            {stat.suffix && <span className="text-dark-bg/70 text-sm">{stat.suffix}</span>}
           </div>
         </motion.div>
       ))}

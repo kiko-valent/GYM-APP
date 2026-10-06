@@ -97,7 +97,7 @@ export default function WeeklyPlan() {
               >
                 <div className="flex items-center gap-3">
                   <div className={`
-                      w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm
+                      w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm
                       ${isToday ? 'bg-lime text-dark-bg' : 'bg-dark-card border border-white/10 text-white'}
                     `}>
                     {dayLabels[day]}
@@ -141,7 +141,7 @@ export default function WeeklyPlan() {
 
                       <button
                         onClick={() => navigate(`/workout/${day}`)}
-                        className="w-full mt-2 bg-gradient-to-r from-lime to-emerald-400 text-dark-bg font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shadow-lg shadow-lime/20"
+                        className="w-full mt-2 bg-lime text-dark-bg font-bold py-3 rounded-full flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
                       >
                         <Dumbbell className="w-4 h-4" />
                         {isToday ? '¡Entrenar Ahora!' : 'Ver Entrenamiento'}

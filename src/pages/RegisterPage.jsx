@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Dumbbell, Mail, Lock, User, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Mail, Lock, User, Loader2, ArrowRight } from 'lucide-react';
+import AuthLayout from '@/components/AuthLayout';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -20,124 +19,24 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isLoading) return;
-
     setIsLoading(true);
     try {
       const { error } = await signUp(email, password, { data: { full_name: name } });
-      
       if (!error) {
-        toast({
-          title: "¡Cuenta creada! 🎉",
-          description: "Bienvenido a FitTrack. Revisa tu email para confirmar tu cuenta.",
-        });
+        toast({ title: '¡Cuenta creada!', description: 'Bienvenido a FitTrack. Revisa tu email para confirmar tu cuenta.' });
         navigate('/dashboard');
       }
-    } catch (err) {
-      console.error("Registration error:", err);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (err) { console.error('Registration error:', err); }
+    finally { setIsLoading(false); }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20">
-          <div className="flex flex-col items-center mb-8">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: "spring" }}
-              className="bg-gradient-to-br from-blue-500 to-purple-600 p-4 rounded-2xl mb-4"
-            >
-              <Dumbbell className="w-12 h-12 text-white" />
-            </motion.div>
-            <h1 className="text-3xl font-bold text-white mb-2">Crear Cuenta</h1>
-            <p className="text-blue-200">Comienza tu viaje fitness</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-white">Nombre</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 w-5 h-5 text-blue-300" />
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Tu nombre"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-200"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-white">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 w-5 h-5 text-blue-300" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="tu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-200"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Contraseña</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 w-5 h-5 text-blue-300" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-200"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-6 rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100"
-            >
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Creando...
-                </span>
-              ) : (
-                "Crear Cuenta"
-              )}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-blue-200">
-              ¿Ya tienes cuenta?{' '}
-              <Link to="/login" className="text-white font-semibold hover:underline">
-                Inicia sesión
-              </Link>
-            </p>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
+  return <AuthLayout registering>
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="space-y-2"><Label htmlFor="name">Nombre</Label><div className="auth-input-wrap"><User size={18} aria-hidden="true"/><Input id="name" type="text" autoComplete="name" placeholder="Tu nombre" value={name} onChange={e => setName(e.target.value)} required disabled={isLoading}/></div></div>
+      <div className="space-y-2"><Label htmlFor="email">Email</Label><div className="auth-input-wrap"><Mail size={18} aria-hidden="true"/><Input id="email" type="email" autoComplete="username" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)} required disabled={isLoading}/></div></div>
+      <div className="space-y-2"><Label htmlFor="password">Contraseña</Label><div className="auth-input-wrap"><Lock size={18} aria-hidden="true"/><Input id="password" type="password" autoComplete="new-password" placeholder="Elige una contraseña" value={password} onChange={e => setPassword(e.target.value)} required disabled={isLoading}/></div></div>
+      <button type="submit" disabled={isLoading} className="btn-lime auth-submit">{isLoading ? <><Loader2 size={19} className="animate-spin"/> Creando…</> : <>Crear cuenta <ArrowRight size={19}/></>}</button>
+    </form>
+    <p className="auth-switch">¿Ya tienes cuenta? <Link to="/login">Iniciar sesión <ArrowRight size={14} aria-hidden="true"/></Link></p>
+  </AuthLayout>;
 }

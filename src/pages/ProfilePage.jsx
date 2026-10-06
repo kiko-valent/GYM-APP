@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Download, LogOut, Loader2 } from 'lucide-react';
+import { Save, Download, LogOut, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -10,6 +10,7 @@ import { readLocal, writeLocal, removeLocal } from '@/lib/localStore';
 import { localDate } from '@/utils/workoutModel';
 import WeightTrend from '@/components/WeightTrend';
 import BottomNav from '@/components/BottomNav';
+import ScreenHeader from '@/components/ScreenHeader';
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth(), navigate = useNavigate(), { toast } = useToast();
@@ -63,7 +64,8 @@ export default function ProfilePage() {
     } catch { toast({ variant: 'destructive', title: 'No se pudo crear la copia', description: 'Reintenta con conexión.' }); }
   };
   const logout = async () => { const result = await signOut(); if (!result?.error) navigate('/login', { replace: true }); };
-  return <main className="page-shell max-w-4xl"><header className="flex items-center gap-3 mb-7"><button onClick={() => navigate('/dashboard')} className="p-3 rounded-xl bg-dark-card" aria-label="Volver a Hoy"><ArrowLeft size={20}/></button><div><p className="eyebrow">TU ESPACIO</p><h1 className="text-2xl font-bold mt-1">Perfil y objetivos</h1></div></header>
+  return <main className="page-shell max-w-4xl"><ScreenHeader title="A tu medida." eyebrow="PERFIL Y OBJETIVOS" description="Tu punto de partida y el plan que sigues." back/>
+    {plan && <section className="profile-banner"><span className="profile-monogram" aria-hidden="true">K</span><div><p className="eyebrow">TU ESPACIO PERSONAL</p><h2>{fields.full_name || 'Francisco Javier'}</h2></div></section>}
     {error ? <div role="alert" className="card-dark p-6">{error}<button className="btn-dark-pill block py-3 px-5 mt-4" onClick={() => window.location.reload()}>Reintentar</button></div> : !plan ? <div className="card-dark p-8 flex items-center gap-3"><Loader2 className="animate-spin text-lime"/> Cargando tu perfil…</div> : <div className="grid md:grid-cols-2 gap-5 items-start">
       <form onSubmit={handleSave} className="space-y-5"><section className="card-dark p-6 space-y-4"><h2 className="font-semibold">Sobre ti</h2><label className="block text-sm text-secondary">Nombre<input className="field block w-full mt-1" value={fields.full_name} onChange={e => change('full_name', e.target.value)} required disabled={saving}/></label><div className="grid grid-cols-2 gap-3"><label className="text-sm text-secondary">Edad<input className="field w-full mt-1" type="number" min="18" max="100" value={fields.age} onChange={e => change('age', e.target.value)} disabled={saving}/></label><label className="text-sm text-secondary">Altura (cm)<input className="field w-full mt-1" type="number" min="100" max="250" value={fields.height} onChange={e => change('height', e.target.value)} disabled={saving}/></label></div></section>
       <section className="card-dark p-6 space-y-4"><h2 className="font-semibold">Tu fase actual</h2><div className="grid grid-cols-2 gap-2">{[['deficit','Perder grasa'],['maintenance','Mantener']].map(([value,label]) => <button key={value} type="button" disabled={saving} aria-pressed={fields.phase === value} onClick={() => change('phase', value)} className={`py-3 rounded-xl text-sm ${fields.phase === value ? 'bg-lime text-dark-bg font-bold' : 'bg-dark-card-lighter'}`}>{label}</button>)}</div><p className="text-secondary text-sm leading-relaxed">En déficit buscamos conservar el rendimiento y observar la tendencia del peso. No hace falta batir una marca en cada sesión.</p><div className="grid grid-cols-2 gap-3"><label className="text-sm text-secondary">Objetivo de kcal/día<input className="field w-full mt-1" type="number" min="1" max="15000" placeholder="Pendiente" value={fields.calorieTarget} onChange={e => change('calorieTarget', e.target.value)} disabled={saving}/></label><label className="text-sm text-secondary">Proteína (g/día)<input className="field w-full mt-1" type="number" min="1" max="1000" placeholder="Pendiente" value={fields.proteinTarget} onChange={e => change('proteinTarget', e.target.value)} disabled={saving}/></label></div><p className="text-secondary text-xs leading-relaxed">Introduce los objetivos del plan que sigues. La app no cambia tu alimentación por un pesaje aislado.</p></section>
