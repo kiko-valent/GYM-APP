@@ -5,7 +5,7 @@
 
 -- Table to store in-progress workout sets (not yet finalized)
 create table if not exists workout_progress (
-  id uuid default uuid_generate_v4() primary key,
+  id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users not null,
   day text not null,  -- 'lunes', 'martes', etc.
   workout_date date default current_date not null,

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, ChevronDown, ChevronUp, Dumbbell, StickyNote, Download, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { generateWorkoutPDF } from '@/utils/pdfGenerator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -76,10 +75,10 @@ function HistoryItem({ session, exercises, index, onDelete }) {
 
   const getDuration = () => {
     // Estimate duration: ~45 min per workout
-    return '45 min';
+    return session.evaluation?.durationMinutes ? `${session.evaluation.durationMinutes} min` : 'Duración no registrada';
   };
 
-  const handleDownloadPDF = (e) => {
+  const handleDownloadPDF = async (e) => {
     e.stopPropagation();
 
     const workoutDataForPDF = Object.entries(exercises).map(([name, sets]) => ({
@@ -90,7 +89,7 @@ function HistoryItem({ session, exercises, index, onDelete }) {
       }))
     }));
 
-    generateWorkoutPDF(workoutDataForPDF, session.date, session.day);
+    try { const { generateWorkoutPDF } = await import('@/utils/pdfGenerator'); generateWorkoutPDF(workoutDataForPDF, session.date, session.day); } catch { alert('No se pudo generar el PDF. Reintenta.'); }
   };
 
   const handleDeleteClick = (e) => {
@@ -141,7 +140,7 @@ function HistoryItem({ session, exercises, index, onDelete }) {
               {session.notes && (
                 <div className="mt-4 mb-4 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-start gap-3">
                   <StickyNote className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <p className="text-amber-200 text-sm italic">"{session.notes}"</p>
+                  <p className="text-amber-200 text-sm italic">«{session.notes}»</p>
                 </div>
               )}
 

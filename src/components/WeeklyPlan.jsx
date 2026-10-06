@@ -31,7 +31,8 @@ export default function WeeklyPlan() {
     const fetchPlan = async () => {
       if (user) {
         const currentDay = new Date().toLocaleDateString('es-ES', { weekday: 'long' }).toLowerCase();
-        const plan = normalizePlanData(await getUserPlan(user.id));
+        let plan;
+        try { plan = normalizePlanData(await getUserPlan(user.id)); } catch { setLoading(false); return; }
         const sortedDays = (plan.training_days || []).sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
         setTrainingDays(sortedDays);
         setWorkouts(plan.workouts || {});

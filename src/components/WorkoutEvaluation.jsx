@@ -12,11 +12,12 @@ const feelings = [
   { emoji: <Tired size={28} />, label: 'Agotado', value: 1, color: 'text-red-400' }
 ];
 
-export default function WorkoutEvaluation({ onComplete }) {
+export default function WorkoutEvaluation({ onComplete, saving = false, exercises = [], onBack }) {
   const [selectedFeeling, setSelectedFeeling] = useState(null);
   const [notes, setNotes] = useState('');
 
   const handleComplete = () => {
+    if (saving) return;
     onComplete({
       feeling: selectedFeeling,
       notes
@@ -39,7 +40,7 @@ export default function WorkoutEvaluation({ onComplete }) {
           <span className="text-lime">¡Entrenamiento</span>{' '}
           <span className="text-cyan">Completado!</span>
         </h2>
-        <p className="text-secondary">¿Cómo te has sentido?</p>
+        <p className="text-secondary">{exercises.reduce((sum, ex) => sum + ex.sets.length, 0)} series registradas · ¿Cómo te has sentido?</p>
       </div>
 
       {/* Feelings Grid */}
@@ -50,7 +51,7 @@ export default function WorkoutEvaluation({ onComplete }) {
               key={feeling.value}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => setSelectedFeeling(feeling.value)}
+              onClick={() => setSelectedFeeling(feeling.value)} disabled={saving}
               className={`p-3 md:p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${selectedFeeling === feeling.value
                   ? 'bg-dark-card-lighter border-lime shadow-lg'
                   : 'bg-dark-bg border-dark-border hover:border-dark-border/80 hover:bg-dark-card-lighter/50'
@@ -74,7 +75,7 @@ export default function WorkoutEvaluation({ onComplete }) {
             <span className="text-white font-medium">Notas</span>
           </div>
           <Textarea
-            value={notes}
+            value={notes} disabled={saving}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="¿Algo que quieras recordar sobre este entrenamiento?"
             maxLength={500}
@@ -86,17 +87,18 @@ export default function WorkoutEvaluation({ onComplete }) {
       {/* Submit Button */}
       <Button
         onClick={handleComplete}
-        disabled={!selectedFeeling}
+        disabled={!selectedFeeling || saving}
         className="w-full btn-lime py-6 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Check className="w-5 h-5 mr-2" />
-        Guardar y Finalizar
+        {saving ? 'Guardando tu entrenamiento…' : 'Guardar y finalizar'}
       </Button>
       {!selectedFeeling && (
         <p className="text-center text-secondary text-sm mt-2">
           Selecciona cómo te has sentido para continuar
         </p>
       )}
+      {onBack && <button onClick={onBack} disabled={saving} className="w-full text-secondary py-4 mt-2">Revisar mis series</button>}
     </motion.div>
   );
 }

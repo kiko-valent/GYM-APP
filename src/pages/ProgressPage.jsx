@@ -1,40 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { getPersonalData } from '@/utils/personalData';
+import WeightTrend from '@/components/WeightTrend';
+import BottomNav from '@/components/BottomNav';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { getWorkoutHistory, deleteWorkoutSession } from '@/utils/workoutData';
 import { useToast } from '@/components/ui/use-toast';
 import ProgressStats from '@/components/ProgressStats';
-import WorkoutHistoryList from '@/components/WorkoutHistoryList';
-import ExerciseProgress from '@/components/ExerciseProgress';
-import WeeklyVolume from '@/components/WeeklyVolume';
-import FatigueInsights from '@/components/FatigueInsights';
-import MonthlyReport from '@/components/MonthlyReport';
-import BottomNav from '@/components/BottomNav';
+const WorkoutHistoryList = lazy(() => import('@/components/WorkoutHistoryList'));
+const ExerciseProgress = lazy(() => import('@/components/ExerciseProgress'));
+const WeeklyVolume = lazy(() => import('@/components/WeeklyVolume'));
+const FatigueInsights = lazy(() => import('@/components/FatigueInsights'));
+const MonthlyReport = lazy(() => import('@/components/MonthlyReport'));
 
-const TABS = [
-  { id: 'ejercicios', label: 'Ejercicios' },
-  { id: 'semana', label: 'Semana' },
-  { id: 'fatiga', label: 'Fatiga' },
-  { id: 'historial', label: 'Historial' },
-];
+const TABS = [{ id: 'resumen', label: 'Resumen' }, { id: 'ejercicios', label: 'Fuerza' }, { id: 'historial', label: 'Historial' }];
 
 export default function ProgressPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('ejercicios');
+  const [weights, setWeights] = useState([]);
+  const [loadError, setLoadError] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('resumen');
 
   useEffect(() => {
-    const fetchHistory = async () => {
-      if (user) {
-        const userHistory = await getWorkoutHistory(user.id);
-        setHistory(userHistory);
-        setLoading(false);
-      }
-    };
-    fetchHistory();
-  }, [user]);
+    let cancelled = false;
+    Promise.all([getWorkoutHistory(user.id), getPersonalData(user.id)]).then(([sessions, body]) => {
+      if (!cancelled) { setHistory(sessions); setWeights(body.weights); setLoadError(body.offline); }
+    }).catch(() => { if (!cancelled) setLoadError(true); }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [user.id]);
 
   const handleDeleteSession = async (sessionId) => {
     try {
@@ -65,7 +62,7 @@ export default function ProgressPage() {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 pb-28 bg-dark-bg">
+    <div className="page-shell max-w-5xl">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <motion.div
@@ -73,7 +70,7 @@ export default function ProgressPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-6"
         >
-          <h1 className="text-2xl font-bold text-white">Progreso</h1>
+          <p className="eyebrow">DATOS PARA DECIDIR</p><h1 className="text-3xl font-bold text-white mt-2">Tu progreso</h1><p className="text-secondary text-sm mt-2">La tendencia del peso y tu rendimiento, juntos.</p>
         </motion.div>
 
         {loading ? (
@@ -86,6 +83,7 @@ export default function ProgressPage() {
         ) : (
           <div className="space-y-6">
             <ProgressStats history={history} userId={user?.id} />
+            {loadError && <p role="status" className="text-orange-300 text-sm">Algunos datos pueden ser de la última copia de este dispositivo.</p>}
 
             {/* Tabs */}
             <div className="flex bg-dark-card rounded-full p-1 border border-dark-border">
@@ -103,16 +101,16 @@ export default function ProgressPage() {
               ))}
             </div>
 
+            <Suspense fallback={<div className="card-dark p-8 text-secondary">Cargando detalles…</div>}>
+            {activeTab === 'resumen' && <div className="space-y-5"><WeightTrend entries={weights}/><WeeklyVolume history={history} userId={user.id}/><details className="card-dark p-5" onToggle={event => setRecoveryOpen(event.currentTarget.open)}><summary className="font-semibold cursor-pointer py-1">Cómo estás recuperando</summary><div className="mt-5">{recoveryOpen && <FatigueInsights history={history}/>}</div></details></div>}
             {activeTab === 'ejercicios' && <ExerciseProgress history={history} />}
-            {activeTab === 'semana' && <WeeklyVolume history={history} userId={user?.id} />}
-            {activeTab === 'fatiga' && <FatigueInsights history={history} />}
             {activeTab === 'historial' && (
               <div className="space-y-4">
                 <MonthlyReport history={history} userId={user?.id} />
                 <WorkoutHistoryList history={history} onDelete={handleDeleteSession} />
               </div>
             )}
-          </div>
+          </Suspense></div>
         )}
       </div>
 

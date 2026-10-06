@@ -21,7 +21,7 @@ export default function WeeklyVolume({ history, userId }) {
     let isMounted = true;
     const fetchPlan = async () => {
       if (!userId) return;
-      const userPlan = await getUserPlan(userId);
+      const userPlan = await getUserPlan(userId).catch(() => ({ workouts: {}, training_days: [] }));
       if (isMounted) setPlan(userPlan);
     };
     fetchPlan();
@@ -46,7 +46,7 @@ export default function WeeklyVolume({ history, userId }) {
       if (inThisWeek) sessionsThisWeek++;
 
       (session.workout_exercises || []).forEach(s => {
-        const group = groupMap[s.exercise_name] || 'sin-asignar';
+        const group = session.evaluation?.setOrder?.find(ex => ex.name === s.exercise_name)?.muscleGroup || groupMap[s.exercise_name] || 'sin-asignar';
         if (inThisWeek) thisWeekSets[group] = (thisWeekSets[group] || 0) + 1;
         if (inPrevWeeks) prevWeeksSets[group] = (prevWeeksSets[group] || 0) + 1;
         if (!lastTrained[group] || date > new Date(lastTrained[group])) {

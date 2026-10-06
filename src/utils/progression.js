@@ -67,7 +67,7 @@ export function formatRepRange(exercise) {
  * @param {Object} exercise - ejercicio del plan (repsMin/repsMax o reps, weight opcional)
  * @returns {{type:'first'|'increase'|'maintain'|'decrease', weight:number, title:string, detail:string}}
  */
-export function getSuggestion(previous, exercise) {
+export function getSuggestion(previous, exercise, phase = 'deficit') {
   const { min, max } = getRepRange(exercise);
 
   if (!previous || !previous.sets || previous.sets.length === 0) {
@@ -89,13 +89,14 @@ export function getSuggestion(previous, exercise) {
   const hasRir = sets.some(s => s.rir != null);
 
   const allAtCeiling = sets.every(s => s.reps >= max);
-  // Sin datos de RIR asumimos que sí hay margen; con datos, exigimos RIR >= 2 en todas
-  const hasReserve = !hasRir || sets.every(s => s.rir == null || s.rir >= 2);
+  // Exigimos RIR registrado y margen en todas las series antes de proponer una subida.
+  const hasReserve = hasRir && sets.every(s => s.rir != null && s.rir >= 2);
   const allAtFailure = hasRir && sets.every(s => (s.rir ?? 2) === 0);
-  const firstSetBelowFloor = sets[0].reps < min;
+  const firstSetBelowFloor = previous.ordered !== false && sets[0].reps < min;
 
   if (allAtCeiling && hasReserve) {
-    const next = roundToPlate(topWeight + PLATE_INCREMENT);
+    const increment = Number(exercise.increment) || (topWeight < 20 ? 1.25 : PLATE_INCREMENT);
+    const next = Math.round((topWeight + increment) * 100) / 100;
     return {
       type: 'increase',
       weight: next,
@@ -105,6 +106,10 @@ export function getSuggestion(previous, exercise) {
   }
 
   if (firstSetBelowFloor || allAtFailure) {
+    if (phase === 'deficit') return {
+      type: 'maintain', weight: topWeight, title: `Consolida ${topWeight} kg`,
+      detail: 'Una sesión más floja no define tu progreso. En déficit, revisa descanso y técnica; si se repite, ajusta la carga sin forzar.',
+    };
     const next = Math.max(0, roundToPlate(topWeight * 0.9));
     return {
       type: 'decrease',
@@ -121,6 +126,6 @@ export function getSuggestion(previous, exercise) {
     type: 'maintain',
     weight: topWeight,
     title: `Mantén ${topWeight} kg`,
-    detail: `Busca una rep más por serie (la última vez: ${bestReps} como máximo, objetivo ${max}).`,
+    detail: phase === 'deficit' ? `Mantener el rendimiento mientras bajas peso también es progreso. Busca una rep más si la técnica y el margen lo permiten (objetivo ${min}–${max}).` : `Busca una rep más por serie (la última vez: ${bestReps} como máximo, objetivo ${max}).`,
   };
 }

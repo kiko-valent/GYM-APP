@@ -1,809 +1,107 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Plus, Minus, ArrowLeft, Target, Calendar, Trophy, Timer, ExternalLink, Pencil, X, TrendingUp, TrendingDown, ArrowRight, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button.jsx';
-import { getPreviousWorkout } from '@/utils/workoutData';
-import { getSuggestion, getRepRange, formatRepRange } from '@/utils/progression';
+import { Minus, Plus, Check, ExternalLink, Pencil, X, Timer } from 'lucide-react';
+import { getPreviousWorkout, resolveTechniqueVideo } from '@/utils/workoutData';
+import { getSuggestion, formatRepRange, getRepRange } from '@/utils/progression';
+import { useRestTimer, useWakeLock } from '@/hooks/useRestTimer';
 import { useToast } from '@/components/ui/use-toast';
 
-export default function SetTracker({
-  exercise,
-  onExerciseComplete,
-  onSetProgress,
-  userId,
-  initialCompletedSets = [],
-  trackIntensity = false
-}) {
-  const totalSets = exercise.sets;
-
-  // Initialize from props (restoration or resume)
-  const [completedSets, setCompletedSets] = useState(initialCompletedSets);
-  const [currentSet, setCurrentSet] = useState(Math.min(initialCompletedSets.length + 1, totalSets));
-
-  // Initialize inputs with last completed set values if available, else default
-  const lastCompleted = initialCompletedSets[initialCompletedSets.length - 1];
-  const [reps, setReps] = useState(lastCompleted ? lastCompleted.reps : getRepRange(exercise).max);
-  const [weight, setWeight] = useState(lastCompleted ? lastCompleted.weight : (exercise.weight ?? 0));
-
-  const [rir, setRir] = useState(lastCompleted ? lastCompleted.rir ?? 2 : 2);
-
-  const [previousData, setPreviousData] = useState(null);
-  const [suggestion, setSuggestion] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function SetTracker({ exercise, userId, initialCompletedSets = [], onSetProgress, onExerciseComplete,
+  trackIntensity = true, phase = 'deficit', timerKey }) {
+  const [sets, setSets] = useState(initialCompletedSets);
+  const setsRef = useRef(initialCompletedSets), touched = useRef(false), inputsBeforeEdit = useRef(null), tapLock = useRef(false);
+  const last = initialCompletedSets.at(-1);
+  const [weight, setWeight] = useState(last?.weight ?? exercise.weight ?? 0);
+  const [reps, setReps] = useState(last?.reps ?? getRepRange(exercise).max);
+  const [rir, setRir] = useState(last?.rir ?? 2);
+  const [editing, setEditing] = useState(null), [previous, setPrevious] = useState(null);
+  const [videoLoading, setVideoLoading] = useState(false);
   const { toast } = useToast();
-
-  // Edit mode: index into completedSets of the set being corrected, or null
-  const [editingIndex, setEditingIndex] = useState(null);
-  // Holds the in-progress inputs while editing a previous set
-  const stashedInputsRef = useRef(null);
-
-  // Goal Achievement State
-  const [showGoalCelebration, setShowGoalCelebration] = useState(false);
-  const [goalAchievedData, setGoalAchievedData] = useState(null);
-
-  // Rest timer states
-  const [showRestTimer, setShowRestTimer] = useState(false);
-  const [restDuration, setRestDuration] = useState(90);
-  const [timeLeft, setTimeLeft] = useState(90);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-
-  const allSetsDone = completedSets.length >= totalSets;
+  const timer = useRestTimer(timerKey, exercise.rest || 90);
+  useWakeLock(true);
+  const done = sets.length >= Number(exercise.sets), currentSet = Math.min(sets.length + 1, Number(exercise.sets));
+  const suggestion = getSuggestion(previous, exercise, phase);
+  const reference = previous?.ordered ? previous.sets[currentSet - 1] : null;
+  const increment = Number(exercise.increment) || 2.5;
 
   useEffect(() => {
-    if (onSetProgress) {
-      onSetProgress(completedSets);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [completedSets]);
-
-  useEffect(() => {
-    const fetchPreviousData = async () => {
-      const prev = await getPreviousWorkout(userId, exercise.name);
-      setPreviousData(prev);
-      const sugg = getSuggestion(prev, exercise);
-      setSuggestion(sugg);
-      // Solo precargamos si aún no hay series hechas hoy
-      if (completedSets.length === 0) {
-        if (sugg.weight > 0) setWeight(sugg.weight);
-        if (prev?.sets?.[0]?.reps) setReps(prev.sets[0].reps);
+    let cancelled = false;
+    getPreviousWorkout(userId, exercise.name, exercise.id).then(data => {
+      if (cancelled) return;
+      setPrevious(data);
+      if (!touched.current && !setsRef.current.length && data) {
+        const suggested = getSuggestion(data, exercise, phase);
+        setWeight(suggested.weight);
+        if (data.ordered && data.sets[0]?.reps) setReps(data.sets[0].reps);
       }
-      setLoading(false);
-    };
-    fetchPreviousData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, exercise.name]);
+    });
+    return () => { cancelled = true; };
+  }, [userId, exercise, phase]);
 
-  // Timer countdown effect
   useEffect(() => {
-    if (!isTimerRunning || timeLeft <= 0) return;
+    if (JSON.stringify(initialCompletedSets) === JSON.stringify(setsRef.current)) return;
+    setsRef.current = initialCompletedSets; setSets(initialCompletedSets);
+    // Una copia remota puede actualizar las series; no pisar los inputs que ya estás escribiendo.
+    if (!touched.current) { const latest = initialCompletedSets.at(-1); if (latest) { setWeight(latest.weight); setReps(latest.reps); } }
+  }, [initialCompletedSets]);
 
-    const interval = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setIsTimerRunning(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isTimerRunning, timeLeft]);
-
-  // Vibrate when rest finishes (mobile)
-  useEffect(() => {
-    if (showRestTimer && timeLeft === 0 && navigator.vibrate) {
-      navigator.vibrate([200, 100, 200]);
-    }
-  }, [showRestTimer, timeLeft]);
-
-  const formatDaysAgo = (dateString) => {
-    if (!dateString) return '';
-    const days = Math.floor((new Date() - new Date(dateString)) / (1000 * 60 * 60 * 24));
-    if (days <= 0) return 'hoy';
-    if (days === 1) return 'ayer';
-    return `hace ${days} días`;
-  };
-
-  const formatDeadline = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
-  };
-
-  const getDaysRemaining = (dateString) => {
-    if (!dateString) return null;
-    const today = new Date();
-    const target = new Date(dateString);
-    const diffTime = target - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  const validateInputs = () => {
-    const parsedReps = parseInt(reps, 10);
-    const parsedWeight = parseFloat(weight);
-
-    if (!parsedReps || parsedReps <= 0) {
-      toast({ variant: 'destructive', title: 'Repeticiones inválidas', description: 'Introduce un número de reps mayor que 0.' });
-      return null;
-    }
-    if (isNaN(parsedWeight) || parsedWeight < 0) {
-      toast({ variant: 'destructive', title: 'Peso inválido', description: 'Introduce un peso válido (mayor o igual a 0).' });
-      return null;
-    }
-    return { reps: parsedReps, weight: parsedWeight };
-  };
-
-  const handleConfirmSet = () => {
-    const parsed = validateInputs();
-    if (!parsed) return;
-
-    const setData = {
-      set: currentSet,
-      reps: parsed.reps,
-      weight: parsed.weight,
-    };
-
-    if (trackIntensity) {
-      setData.rir = parseInt(rir, 10);
-    }
-
-    if (exercise.targetWeight && parsed.weight >= parseFloat(exercise.targetWeight)) {
-      const daysLeft = getDaysRemaining(exercise.targetDate);
-      const isEarly = daysLeft && daysLeft > 0;
-      const alreadyAchievedInSession = completedSets.some(s => s.weight >= parseFloat(exercise.targetWeight));
-
-      if (!alreadyAchievedInSession) {
-        setGoalAchievedData({
-          weight: parsed.weight,
-          target: parseFloat(exercise.targetWeight),
-          daysLeft: daysLeft,
-          isEarly: isEarly
-        });
-        setShowGoalCelebration(true);
-        const newCompletedSets = [...completedSets, setData];
-        setCompletedSets(newCompletedSets);
-        return;
-      }
-    }
-
-    proceedToNextStep(setData);
-  };
-
-  const proceedToNextStep = (currentSetData) => {
-    let newCompletedSets = completedSets;
-    const lastSet = completedSets[completedSets.length - 1];
-    const setAlreadyAdded = lastSet && lastSet.set === currentSetData.set;
-
-    if (!setAlreadyAdded) {
-      newCompletedSets = [...completedSets, currentSetData];
-      setCompletedSets(newCompletedSets);
-    }
-
-    if (currentSet < totalSets) {
-      setShowGoalCelebration(false);
-      setShowRestTimer(true);
-      setTimeLeft(restDuration);
-      setIsTimerRunning(true);
-    } else {
-      setShowGoalCelebration(false);
-      onExerciseComplete({
-        name: exercise.name,
-        sets: newCompletedSets,
-      });
-    }
-  };
-
-  const handleContinueAfterCelebration = () => {
-    const setData = {
-      set: currentSet,
-      reps: parseInt(reps, 10),
-      weight: parseFloat(weight),
-    };
-    if (trackIntensity) {
-      setData.rir = parseInt(rir, 10);
-    }
-    proceedToNextStep(setData);
-  };
-
-  const handleContinueToNextSet = () => {
-    setShowRestTimer(false);
-    setIsTimerRunning(false);
-    // Precarga las reps que hiciste en esta misma serie la última sesión
-    const nextPrevSet = previousData?.sets?.[currentSet];
-    if (nextPrevSet?.reps) setReps(nextPrevSet.reps);
-    setCurrentSet(prev => Math.min(prev + 1, totalSets));
-    setTimeLeft(restDuration);
-  };
-
-  const handleSkipRest = () => {
-    setIsTimerRunning(false);
-    handleContinueToNextSet();
-  };
-
-  const handleRestBack = () => {
-    setShowRestTimer(false);
-    setIsTimerRunning(false);
-    const newCompletedSets = completedSets.slice(0, -1);
-    setCompletedSets(newCompletedSets);
-  };
-
-  // ===== Edit previous set =====
-  const startEditSet = (index) => {
-    if (editingIndex === null) {
-      stashedInputsRef.current = { reps, weight, rir };
-    }
-    const target = completedSets[index];
-    setReps(target.reps);
-    setWeight(target.weight);
-    if (trackIntensity) {
-      setRir(target.rir ?? 2);
-    }
-    setEditingIndex(index);
-  };
-
+  const publish = next => { setsRef.current = next; setSets(next); onSetProgress?.(next); };
   const cancelEdit = () => {
-    const stashed = stashedInputsRef.current;
-    if (stashed) {
-      setReps(stashed.reps);
-      setWeight(stashed.weight);
-      setRir(stashed.rir);
-      stashedInputsRef.current = null;
+    if (inputsBeforeEdit.current) { const value = inputsBeforeEdit.current; setWeight(value.weight); setReps(value.reps); setRir(value.rir); }
+    inputsBeforeEdit.current = null; setEditing(null);
+  };
+  const edit = index => {
+    if (editing == null) inputsBeforeEdit.current = { weight, reps, rir };
+    const set = setsRef.current[index]; setWeight(set.weight); setReps(set.reps); setRir(set.rir ?? 2); setEditing(index); touched.current = true;
+  };
+  const confirm = () => {
+    if (tapLock.current || (editing == null && timer.showRestTimer && timer.timeLeft > 0)) return;
+    const parsedWeight = Number(String(weight).replace(',', '.')), parsedReps = Number(reps);
+    if (String(weight).trim() === '' || !Number.isFinite(parsedWeight) || parsedWeight < 0 || parsedWeight > 1000 || !Number.isInteger(parsedReps) || parsedReps < 1 || parsedReps > 100) {
+      toast({ variant: 'destructive', title: 'Revisa esta serie', description: 'Usa un peso válido (0–1.000 kg) y entre 1 y 100 repeticiones.' }); return;
     }
-    setEditingIndex(null);
-  };
-
-  const handleSaveEdit = () => {
-    const parsed = validateInputs();
-    if (parsed === null) return;
-
-    const setNumber = completedSets[editingIndex]?.set ?? editingIndex + 1;
-    setCompletedSets(prev => prev.map((s, i) => {
-      if (i !== editingIndex) return s;
-      const updated = { ...s, reps: parsed.reps, weight: parsed.weight };
-      if (trackIntensity) {
-        updated.rir = parseInt(rir, 10);
-      }
-      return updated;
-    }));
-
-    toast({ title: `Serie ${setNumber} corregida ✓`, description: `${parsed.weight}kg × ${parsed.reps} reps` });
-    cancelEdit();
-  };
-
-  // Open video externally in YouTube app or browser
-  const handleOpenVideo = () => {
-    if (!exercise.techniqueVideo) {
-      toast({
-        variant: "destructive",
-        title: "Sin vídeo",
-        description: "No hay vídeo configurado para este ejercicio."
-      });
-      return;
+    tapLock.current = true; setTimeout(() => { tapLock.current = false; }, 350);
+    const nextSet = { set: editing == null ? setsRef.current.length + 1 : editing + 1, weight: parsedWeight, reps: parsedReps,
+      ...(trackIntensity ? { rir: Number(rir) } : {}) };
+    if (editing != null) {
+      publish(setsRef.current.map((row,index) => index === editing ? nextSet : row));
+      cancelEdit(); toast({ title: 'Serie corregida' }); return;
     }
-    // Open in new tab - on mobile this will open YouTube app if installed
-    window.open(exercise.techniqueVideo, '_blank', 'noopener,noreferrer');
+    const next = [...setsRef.current, nextSet]; publish(next); touched.current = false;
+    navigator.vibrate?.(25);
+    if (Number(exercise.targetWeight) > 0 && parsedWeight >= Number(exercise.targetWeight) && !setsRef.current.slice(0,-1).some(row => row.weight >= Number(exercise.targetWeight))) toast({ title: 'Peso objetivo alcanzado', description: `${parsedWeight} kg × ${parsedReps} reps. La técnica sigue siendo lo primero.` });
+    if (next.length >= Number(exercise.sets)) { timer.clearRest(); onExerciseComplete({ name: exercise.name, sets: next }); }
+    else { const nextReference = previous?.ordered ? previous.sets[next.length] : null; setReps(nextReference?.reps ?? parsedReps); setWeight(parsedWeight); timer.startRest(); }
   };
-
-  // Adjusts both total duration and remaining time so the buttons work mid-countdown
-  const adjustRestTime = (delta) => {
-    setRestDuration(prev => Math.max(10, prev + delta));
-    const next = Math.max(0, timeLeft + delta);
-    setTimeLeft(next);
-    if (next > 0 && !isTimerRunning) {
-      setIsTimerRunning(true);
-    }
+  const copy = () => { if (reference) { setWeight(reference.weight); setReps(reference.reps); setRir(reference.rir ?? 2); touched.current = true; } };
+  const openVideo = async () => {
+    if (videoLoading) return;
+    const opened = window.open('about:blank', '_blank'); if (opened) opened.opener = null;
+    setVideoLoading(true);
+    try { const url = await resolveTechniqueVideo(exercise.techniqueVideo); if (opened) opened.location.href = url;
+      else toast({ title: 'Permite abrir el enlace del vídeo en otra pestaña' }); }
+    catch { opened?.close(); toast({ variant: 'destructive', title: 'No se pudo abrir el vídeo' }); }
+    finally { setVideoLoading(false); }
   };
+  const changeWeight = value => { touched.current = true; setWeight(value); };
+  const numericWeight = () => Number(String(weight).replace(',', '.')) || 0;
+  const changeReps = value => { touched.current = true; setReps(value); };
 
-  const isEditing = editingIndex !== null;
-  const isLastSet = currentSet === totalSets;
-  const restFinished = timeLeft === 0;
-  const progress = restDuration > 0 ? Math.min(100, Math.max(0, ((restDuration - timeLeft) / restDuration) * 100)) : 0;
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-
-  // Calculate circumference for circular progress
-  const radius = 120;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
-
-  const numberOrZero = (v) => parseFloat(v) || 0;
-
-  return (
-    <AnimatePresence mode="wait">
-      {showGoalCelebration ? (
-        /* Goal Celebration Screen */
-        <motion.div
-          key="celebration"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          className="card-dark p-8 text-center"
-        >
-          <div className="mb-6">
-            <div className="inline-flex items-center justify-center p-4 bg-lime/20 rounded-full mb-4 border border-lime/40 glow-lime">
-              <Trophy className="w-16 h-16 text-lime" />
-            </div>
-            <h2 className="text-3xl font-bold text-white mb-2">¡Objetivo Cumplido! 🎉</h2>
-            <p className="text-xl text-lime font-semibold mb-1">
-              Levantaste {goalAchievedData?.weight}kg
-            </p>
-            <p className="text-secondary">
-              Meta: {goalAchievedData?.target}kg
-            </p>
-
-            {goalAchievedData?.daysLeft > 0 && (
-              <div className="mt-4 bg-cyan/20 border border-cyan/30 rounded-2xl p-3 inline-block">
-                <p className="text-cyan text-sm font-medium">
-                  ¡Lo lograste {goalAchievedData.daysLeft} días antes! 🚀
-                </p>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={handleContinueAfterCelebration}
-            className="w-full btn-lime py-5 text-lg"
-          >
-            Continuar Entrenamiento
-          </button>
-        </motion.div>
-
-      ) : showRestTimer ? (
-        /* Rest Timer Screen - Circular Progress */
-        <motion.div
-          key="rest-timer"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="text-center"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <button
-              onClick={handleRestBack}
-              className="flex items-center gap-1.5 text-white/60 hover:text-white p-2 -ml-2 transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6" />
-              <span className="text-sm">Corregir serie</span>
-            </button>
-            <h2 className="text-lg font-bold text-white tracking-wide">
-              {restFinished ? '¡A POR LA SIGUIENTE!' : 'DESCANSANDO...'}
-            </h2>
-            <div className="w-10" /> {/* Spacer */}
-          </div>
-
-          {/* Circular Progress */}
-          <div className="relative inline-flex items-center justify-center mb-8">
-            <svg width="280" height="280" className="progress-ring">
-              {/* Background circle */}
-              <circle
-                className="progress-ring-bg"
-                strokeWidth="8"
-                r={radius}
-                cx="140"
-                cy="140"
-              />
-              {/* Progress circle */}
-              <circle
-                className="progress-ring-fill"
-                strokeWidth="8"
-                r={radius}
-                cx="140"
-                cy="140"
-                style={{
-                  strokeDasharray: circumference,
-                  strokeDashoffset: strokeDashoffset,
-                }}
-              />
-            </svg>
-            {/* Time Display */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={`text-6xl font-bold tracking-tight ${restFinished ? 'text-lime' : 'text-white'}`}>
-                {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-              </span>
-              <span className="text-cyan text-sm font-medium tracking-widest mt-1">
-                {restFinished ? 'COMPLETADO' : 'RESTANTE'}
-              </span>
-            </div>
-          </div>
-
-          {/* Time Adjustment Buttons */}
-          <div className="flex justify-center gap-3 mb-8">
-            <button
-              onClick={() => adjustRestTime(30)}
-              className="btn-dark-pill px-5 py-3 text-sm"
-            >
-              +30s
-            </button>
-            <button
-              onClick={() => adjustRestTime(60)}
-              className="btn-dark-pill px-5 py-3 text-sm"
-            >
-              +1m
-            </button>
-            <button
-              onClick={() => adjustRestTime(-10)}
-              className="btn-dark-pill px-5 py-3 text-sm"
-            >
-              -10s
-            </button>
-          </div>
-
-          {/* Up Next */}
-          <div className="card-dark p-4 mb-6">
-            <p className="label-uppercase mb-2">SIGUIENTE</p>
-            <div className="flex items-center gap-3">
-              <div className="bg-cyan/20 p-2 rounded-xl">
-                <Target className="w-5 h-5 text-cyan" />
-              </div>
-              <div className="text-left">
-                <p className="text-white font-semibold">{exercise.name}</p>
-                <p className="text-secondary text-sm">Serie {Math.min(currentSet + 1, totalSets)} • {formatRepRange(exercise)} • {weight}kg</p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleOpenVideo}
-              disabled={!exercise.techniqueVideo}
-              className="w-full mt-3 text-cyan border border-cyan/30 hover:bg-cyan/10 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              {exercise.techniqueVideo ? 'Ver en YouTube' : 'Sin vídeo'}
-            </Button>
-          </div>
-
-          {/* Resume Button */}
-          <button
-            onClick={handleSkipRest}
-            className={`w-full btn-cyan py-5 text-lg mb-4 ${restFinished ? 'animate-pulse glow-cyan' : ''}`}
-          >
-            Continuar entrenamiento →
-          </button>
-        </motion.div>
-
-      ) : (
-        /* Main Set Tracker Screen */
-        <motion.div
-          key="set-tracker"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="space-y-6"
-        >
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white italic">{exercise.name.toUpperCase()}</h1>
-              <div className="flex flex-col gap-2 mt-2">
-                <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${allSetsDone ? 'bg-lime/20 text-lime' : 'bg-dark-card-lighter text-white'}`}>
-                    {allSetsDone ? 'COMPLETADO ✓' : `SERIE ${currentSet}`}
-                  </span>
-                  {!allSetsDone && <span className="text-secondary">de {totalSets} · {formatRepRange(exercise)}</span>}
-                </div>
-                <Button
-                  variant="link"
-                  size="sm"
-                  onClick={handleOpenVideo}
-                  disabled={!exercise.techniqueVideo}
-                  className="text-cyan p-0 h-auto font-normal justify-start disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" /> {exercise.techniqueVideo ? 'Consultar ejercicio' : 'Sin vídeo'}
-                </Button>
-              </div>
-            </div>
-            <div className="bg-dark-card-lighter p-2 rounded-full">
-              <Timer className="w-5 h-5 text-cyan" />
-            </div>
-          </div>
-
-          {/* Suggestion Banner */}
-          {!loading && suggestion && !allSetsDone && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`flex items-start gap-3 rounded-2xl p-4 border ${suggestion.type === 'increase'
-                ? 'bg-lime/10 border-lime/30'
-                : suggestion.type === 'decrease'
-                  ? 'bg-red-500/10 border-red-500/30'
-                  : suggestion.type === 'maintain'
-                    ? 'bg-yellow-400/10 border-yellow-400/30'
-                    : 'bg-dark-card-lighter border-dark-border'
-                }`}
-            >
-              {suggestion.type === 'increase' && <TrendingUp className="w-5 h-5 text-lime mt-0.5 shrink-0" />}
-              {suggestion.type === 'decrease' && <TrendingDown className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />}
-              {suggestion.type === 'maintain' && <ArrowRight className="w-5 h-5 text-yellow-400 mt-0.5 shrink-0" />}
-              {suggestion.type === 'first' && <Sparkles className="w-5 h-5 text-cyan mt-0.5 shrink-0" />}
-              <div>
-                <p className={`font-bold ${suggestion.type === 'increase'
-                  ? 'text-lime'
-                  : suggestion.type === 'decrease'
-                    ? 'text-red-400'
-                    : suggestion.type === 'maintain'
-                      ? 'text-yellow-400'
-                      : 'text-cyan'
-                  }`}>
-                  {suggestion.title}
-                </p>
-                <p className="text-secondary text-sm mt-0.5">{suggestion.detail}</p>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Last Session Reference */}
-          {!loading && previousData?.sets?.length > 0 && (
-            <div className="card-dark p-4">
-              <p className="label-uppercase mb-3">ÚLTIMA VEZ · {formatDaysAgo(previousData.date).toUpperCase()}</p>
-              <div className="flex flex-wrap gap-2">
-                {previousData.sets.map((s, i) => (
-                  <span
-                    key={i}
-                    className={`rounded-xl px-3 py-2 text-sm font-semibold ${i === currentSet - 1 && !allSetsDone
-                      ? 'bg-cyan/15 border border-cyan/40 text-white'
-                      : 'bg-dark-card-lighter text-white'
-                      }`}
-                  >
-                    {s.weight}kg × {s.reps}
-                    {s.rir != null && <span className="text-secondary font-normal"> · RIR {s.rir}</span>}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Goal Reminder */}
-          {exercise.targetWeight && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-between bg-lime/10 border border-lime/20 rounded-2xl p-4"
-            >
-              <div className="flex items-center gap-3">
-                <Target className="w-5 h-5 text-lime" />
-                <div>
-                  <p className="text-lime text-sm font-medium">Objetivo: {exercise.targetWeight}kg</p>
-                  {exercise.targetDate && (
-                    <p className="text-lime/60 text-xs flex items-center gap-1 mt-0.5">
-                      <Calendar className="w-3 h-3" />
-                      {formatDeadline(exercise.targetDate)}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <span className="text-lime font-bold">
-                {exercise.targetWeight > 0 ? Math.min(100, Math.round((numberOrZero(weight) / exercise.targetWeight) * 100)) : 0}%
-              </span>
-            </motion.div>
-          )}
-
-          {/* Editing banner */}
-          <AnimatePresence>
-            {isEditing && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="flex items-center justify-between bg-cyan/10 border border-cyan/40 rounded-2xl p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <Pencil className="w-5 h-5 text-cyan" />
-                  <p className="text-cyan font-semibold">
-                    Corrigiendo serie {completedSets[editingIndex]?.set ?? editingIndex + 1}
-                  </p>
-                </div>
-                <button
-                  onClick={cancelEdit}
-                  className="text-white/60 hover:text-white p-1 transition-colors"
-                  aria-label="Cancelar corrección"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {allSetsDone && !isEditing ? (
-            /* Exercise already completed: only editing is allowed */
-            <div className="card-dark p-6 text-center">
-              <div className="inline-flex items-center justify-center p-3 bg-lime/15 rounded-full mb-3 border border-lime/30">
-                <Check className="w-8 h-8 text-lime" />
-              </div>
-              <p className="text-white font-semibold mb-1">Todas las series registradas</p>
-              <p className="text-secondary text-sm">Toca cualquier serie de la lista para corregir el peso o las repeticiones.</p>
-            </div>
-          ) : (
-            <>
-              {/* Weight Input Card */}
-              <div className={`card-dark p-6 ${isEditing ? 'border border-cyan/30' : ''}`}>
-                <p className="label-uppercase text-center mb-4">PESO (KG)</p>
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => setWeight(w => Math.max(0, numberOrZero(w) - 2.5))}
-                    className="bg-dark-card-lighter hover:bg-dark-border w-16 h-20 rounded-2xl flex items-center justify-center transition-colors active:scale-95"
-                  >
-                    <Minus className="w-6 h-6 text-cyan" />
-                  </button>
-                  <div className="flex-1 text-center">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.5"
-                      value={weight}
-                      onChange={(e) => setWeight(e.target.value)}
-                      className="number-display text-white bg-transparent text-center w-full focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    onClick={() => setWeight(w => numberOrZero(w) + 2.5)}
-                    className="bg-dark-card-lighter hover:bg-dark-border w-16 h-20 rounded-2xl flex items-center justify-center transition-colors active:scale-95"
-                  >
-                    <Plus className="w-6 h-6 text-cyan" />
-                  </button>
-                </div>
-                {/* Quick weight adjustments */}
-                <div className="flex justify-center gap-2 mt-4">
-                  {[2.5, 5, 10].map(increment => (
-                    <button
-                      key={increment}
-                      onClick={() => setWeight(w => numberOrZero(w) + increment)}
-                      className="btn-dark-pill px-4 py-2 text-sm"
-                    >
-                      +{increment}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Reps Input Card */}
-              <div className={`card-dark p-6 ${isEditing ? 'border border-cyan/30' : ''}`}>
-                <p className="label-uppercase text-center mb-4">REPS</p>
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => setReps(r => Math.max(0, (parseInt(r, 10) || 0) - 1))}
-                    className="bg-dark-card-lighter hover:bg-dark-border w-16 h-20 rounded-2xl flex items-center justify-center transition-colors active:scale-95"
-                  >
-                    <Minus className="w-6 h-6 text-cyan" />
-                  </button>
-                  <div className="flex-1 text-center">
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      value={reps}
-                      onChange={(e) => setReps(e.target.value)}
-                      className="number-display text-white bg-transparent text-center w-full focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    onClick={() => setReps(r => (parseInt(r, 10) || 0) + 1)}
-                    className="bg-dark-card-lighter hover:bg-dark-border w-16 h-20 rounded-2xl flex items-center justify-center transition-colors active:scale-95"
-                  >
-                    <Plus className="w-6 h-6 text-cyan" />
-                  </button>
-                </div>
-              </div>
-
-              {/* RIR Section (if enabled) - one tap selection */}
-              {trackIntensity && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="card-dark p-4"
-                >
-                  <p className="label-uppercase text-center mb-3">RIR · ¿CUÁNTAS REPS TE QUEDABAN?</p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[0, 1, 2, 3].map(value => (
-                      <button
-                        key={value}
-                        onClick={() => setRir(value)}
-                        className={`py-4 rounded-xl text-xl font-bold transition-colors active:scale-95 ${parseInt(rir, 10) === value
-                          ? 'bg-cyan text-dark-bg'
-                          : 'bg-dark-card-lighter text-white hover:bg-dark-border'
-                          }`}
-                      >
-                        {value === 3 ? '3+' : value}
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </>
-          )}
-
-          {/* Action Button */}
-          {isEditing ? (
-            <div className="space-y-3">
-              <button
-                onClick={handleSaveEdit}
-                className="w-full btn-cyan py-5 text-lg flex items-center justify-center gap-2"
-              >
-                GUARDAR SERIE {completedSets[editingIndex]?.set ?? editingIndex + 1}
-                <Check className="w-5 h-5" />
-              </button>
-              <button
-                onClick={cancelEdit}
-                className="w-full btn-dark-pill py-4 text-base"
-              >
-                Cancelar
-              </button>
-            </div>
-          ) : allSetsDone ? (
-            <button
-              onClick={() => onExerciseComplete({ name: exercise.name, sets: completedSets })}
-              className="w-full btn-lime py-5 text-lg flex items-center justify-center gap-2"
-            >
-              GUARDAR Y CONTINUAR
-              <Check className="w-5 h-5" />
-            </button>
-          ) : (
-            <button
-              onClick={handleConfirmSet}
-              className="w-full btn-lime py-5 text-lg flex items-center justify-center gap-2"
-            >
-              {isLastSet ? 'COMPLETAR EJERCICIO' : 'CONFIRMAR SERIE'}
-              <Check className="w-5 h-5" />
-            </button>
-          )}
-
-          {/* Set Progress Dots */}
-          <div className="flex justify-center gap-2">
-            {Array.from({ length: totalSets }).map((_, i) => (
-              <div
-                key={i}
-                className={`w-3 h-3 rounded-full transition-all ${i < completedSets.length
-                  ? 'bg-lime'
-                  : i === completedSets.length
-                    ? 'bg-cyan'
-                    : 'bg-dark-card-lighter'
-                  }`}
-              />
-            ))}
-          </div>
-
-          {/* Completed Sets - tap to fix a mistake */}
-          {completedSets.length > 0 && (
-            <div className="card-dark p-4">
-              <p className="label-uppercase mb-3">SERIES COMPLETADAS · TOCA PARA CORREGIR</p>
-              <div className="space-y-2">
-                {completedSets.map((s, i) => {
-                  const isBeingEdited = editingIndex === i;
-                  return (
-                    <motion.button
-                      key={`${s.set}-${i}`}
-                      layout
-                      onClick={() => (isBeingEdited ? cancelEdit() : startEditSet(i))}
-                      className={`w-full flex items-center justify-between rounded-xl px-4 py-3 transition-colors text-left ${isBeingEdited
-                        ? 'bg-cyan/15 border border-cyan/50'
-                        : 'bg-dark-card-lighter border border-transparent hover:border-cyan/30'
-                        }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isBeingEdited ? 'bg-cyan text-dark-bg' : 'bg-lime/20 text-lime'}`}>
-                          {isBeingEdited ? <Pencil className="w-3.5 h-3.5" /> : s.set}
-                        </span>
-                        <span className="text-white font-semibold">
-                          {s.weight}kg × {s.reps}
-                        </span>
-                        {trackIntensity && s.rir != null && (
-                          <span className="text-secondary text-xs">RIR {s.rir}</span>
-                        )}
-                      </div>
-                      <span className={`text-xs font-medium ${isBeingEdited ? 'text-cyan' : 'text-secondary'}`}>
-                        {isBeingEdited ? 'Editando...' : 'Corregir'}
-                      </span>
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </motion.div>
-      )}
-
-
-    </AnimatePresence>
-  );
+  return <section className="space-y-4">
+    <header><h2 className="text-2xl font-bold leading-tight">{exercise.name}</h2><p className="text-secondary text-sm mt-2">{done ? 'Todas las series registradas' : `Serie ${currentSet} de ${exercise.sets}`} · {formatRepRange(exercise)} · descanso {exercise.rest || 90}s</p></header>
+    {exercise.description && <details className="text-sm text-secondary"><summary className="cursor-pointer py-1">Notas de técnica</summary><p className="mt-2 leading-relaxed">{exercise.description}</p></details>}
+    {exercise.techniqueVideo && <button onClick={openVideo} disabled={videoLoading} className="text-cyan text-sm flex gap-2 items-center py-1"><ExternalLink size={15}/>{videoLoading ? 'Abriendo…' : 'Ver vídeo del ejercicio'}</button>}
+    <details className="card-dark px-4 py-3 border-lime/15"><summary className="cursor-pointer text-sm text-lime font-semibold">{suggestion.title}</summary><p className="text-secondary text-sm mt-2 leading-relaxed">{suggestion.detail}</p></details>
+    {previous && <div className="flex items-center justify-between gap-3 text-sm px-1"><div><p className="text-secondary text-xs">{reference ? `Última vez · serie ${currentSet}` : 'Sesión anterior'}</p><p className="font-semibold mt-0.5">{reference ? `${reference.weight} kg × ${reference.reps}` : `${previous.sets.length} series registradas`}</p></div>{reference && <button onClick={copy} disabled={editing != null} className="text-cyan text-xs py-3">Copiar valores</button>}</div>}
+    {timer.showRestTimer && <div className="card-dark p-4 border-cyan/20" role="region" aria-label="Descanso"><div className="flex justify-between items-center gap-3"><div className="flex items-center gap-2"><Timer size={19} className="text-cyan"/><span className="text-3xl font-bold tabular-nums">{Math.floor(timer.timeLeft/60)}:{String(timer.timeLeft%60).padStart(2,'0')}</span><span className="text-secondary text-xs">{timer.timeLeft === 0 ? 'Listo' : timer.isTimerRunning ? 'Descanso' : 'Pausado'}</span></div><button onClick={timer.clearRest} className="text-cyan text-xs py-3">{timer.timeLeft === 0 ? 'Continuar' : 'Terminar descanso'}</button></div><div className="flex gap-2 mt-3"><button onClick={() => timer.adjustRest(-15)} className="btn-dark-pill flex-1 py-2.5 text-xs">−15s</button><button onClick={timer.togglePause} disabled={timer.timeLeft === 0} className="btn-dark-pill flex-1 py-2.5 text-xs">{timer.isTimerRunning ? 'Pausar' : 'Reanudar'}</button><button onClick={() => timer.adjustRest(15)} className="btn-dark-pill flex-1 py-2.5 text-xs">+15s</button></div></div>}
+    {editing != null && <div className="flex items-center justify-between text-cyan text-sm"><span>Corrigiendo serie {editing+1}</span><button onClick={cancelEdit} aria-label="Cancelar corrección" className="p-2"><X size={18}/></button></div>}
+    {(!done || editing != null) && <>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="card-dark p-4 text-center"><label htmlFor="set-weight" className="eyebrow">PESO · KG</label><input id="set-weight" aria-label="Peso de la serie en kg" className="w-full bg-transparent text-center text-[40px] sm:text-5xl font-bold tabular-nums my-3 focus:outline-none" type="text" inputMode="decimal" value={weight} onChange={e => changeWeight(e.target.value)} autoComplete="off"/><div className="grid grid-cols-2 gap-2"><button aria-label="Reducir peso" onClick={() => changeWeight(Math.max(0, numericWeight()-increment))} className="bg-dark-card-lighter py-3 rounded-xl flex justify-center"><Minus size={19}/></button><button aria-label="Aumentar peso" onClick={() => changeWeight(Math.round((numericWeight()+increment)*100)/100)} className="bg-dark-card-lighter py-3 rounded-xl flex justify-center text-cyan"><Plus size={19}/></button></div></div>
+        <div className="card-dark p-4 text-center"><label htmlFor="set-reps" className="eyebrow">REPETICIONES</label><input id="set-reps" aria-label="Repeticiones de la serie" className="w-full bg-transparent text-center text-[40px] sm:text-5xl font-bold tabular-nums my-3 focus:outline-none" type="number" inputMode="numeric" min="1" max="100" value={reps} onChange={e => changeReps(e.target.value)}/><div className="grid grid-cols-2 gap-2"><button aria-label="Reducir repeticiones" onClick={() => changeReps(Math.max(1,Number(reps)-1))} className="bg-dark-card-lighter py-3 rounded-xl flex justify-center"><Minus size={19}/></button><button aria-label="Aumentar repeticiones" onClick={() => changeReps(Math.min(100,Number(reps)+1))} className="bg-dark-card-lighter py-3 rounded-xl flex justify-center text-cyan"><Plus size={19}/></button></div></div>
+      </div>
+      {trackIntensity && <div><p className="text-xs text-secondary mb-2">RIR · ¿Cuántas repeticiones te quedaban?</p><div className="grid grid-cols-4 gap-2">{[0,1,2,3].map(value => <button key={value} onClick={() => setRir(value)} aria-pressed={Number(rir)===value} className={`py-3 rounded-xl font-semibold ${Number(rir)===value ? 'bg-cyan text-dark-bg' : 'bg-dark-card-lighter'}`}>{value===3?'3+':value}</button>)}</div></div>}
+    </>}
+    <div className="sticky bottom-3 pt-2"><button onClick={done && editing == null ? () => onExerciseComplete({name:exercise.name,sets:setsRef.current}) : confirm} disabled={editing == null && timer.showRestTimer && timer.timeLeft > 0} className="btn-lime w-full py-4 text-base flex items-center justify-center gap-2 disabled:opacity-40"><Check size={19}/>{editing != null ? 'Guardar corrección' : done ? 'Guardar y continuar' : timer.showRestTimer && timer.timeLeft > 0 ? 'Descansa antes de la siguiente' : currentSet === Number(exercise.sets) ? 'Completar ejercicio' : `Confirmar serie ${currentSet}`}</button></div>
+    {sets.length > 0 && <div className="space-y-2"><p className="eyebrow">TUS SERIES DE HOY · TOCA PARA CORREGIR</p>{sets.map((row,index) => <button key={index} onClick={() => edit(index)} className="w-full flex items-center justify-between gap-3 rounded-xl bg-dark-card px-4 py-3 text-sm"><span className="text-secondary">{index+1}</span><span className="font-semibold tabular-nums">{row.weight} kg × {row.reps}</span><span className="text-secondary text-xs">{row.rir != null ? `RIR ${row.rir}` : ''}</span><Pencil size={14} className="text-cyan"/></button>)}</div>}
+  </section>;
 }

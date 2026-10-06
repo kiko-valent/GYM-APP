@@ -1,259 +1,73 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Save, Flame, Wheat, Beef, Weight, TrendingUp, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { ArrowLeft, Save, Download, LogOut, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
+import { getUserPlan, updateUserPlan, getWorkoutHistory } from '@/utils/workoutData';
+import { getPersonalData } from '@/utils/personalData';
+import { readLocal, writeLocal, removeLocal } from '@/lib/localStore';
+import { localDate } from '@/utils/workoutModel';
+import WeightTrend from '@/components/WeightTrend';
 import BottomNav from '@/components/BottomNav';
 
-const goalOptions = ["Definición", "Mantenimiento", "Aumento de peso"];
-
 export default function ProfilePage() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { toast } = useToast();
-
-  const [profile, setProfile] = useState({ full_name: '', age: '', physical_goal: '', current_weight: '' });
-  const [nutrition, setNutrition] = useState({ fat_g: '', carbs_g: '', protein_g: '', calories_kcal: '' });
-  const [newWeight, setNewWeight] = useState('');
-  const [weightHistory, setWeightHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-
+  const { user, signOut } = useAuth(), navigate = useNavigate(), { toast } = useToast();
+  const [plan, setPlan] = useState(null), [body, setBody] = useState(null), [error, setError] = useState('');
+  const [fields, setFields] = useState({ full_name: '', age: '', height: '', calorieTarget: '', proteinTarget: '', phase: 'deficit' });
+  const [saving, setSaving] = useState(false), [dirty, setDirty] = useState(false);
+  const saveLock = useRef(false);
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-      setLoading(true);
-
-      // Fetch Profile
-      const { data: profileData } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (profileData) setProfile(profileData);
-      // Fetch Today's Nutrition
-      const today = new Date().toLocaleDateString('en-CA');
-      const { data: nutritionData } = await supabase
-        .from('user_nutrition')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('date', today)
-        .maybeSingle();
-      if (nutritionData) setNutrition(nutritionData);
-
-      // Fetch Weight History
-      const { data: weightData } = await supabase
-        .from('weight_history')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false })
-        .limit(5);
-      if (weightData) setWeightHistory(weightData);
-
-      setLoading(false);
-    };
-    fetchData();
-  }, [user]);
-
-  const handleProfileChange = (field, value) => {
-    setProfile(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleNutritionChange = (field, value) => {
-    setNutrition(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSave = async () => {
-    if (!user) return;
-    setLoading(true);
-
-    // Prepare profile payload with proper data types
-    const profilePayload = {
-      id: user.id,
-      full_name: profile.full_name || null,
-      age: profile.age ? parseInt(profile.age, 10) : null,
-      current_weight: profile.current_weight ? parseFloat(profile.current_weight) : null,
-      physical_goal: profile.physical_goal || null,
-    };
-
-    // Upsert Profile
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .upsert(profilePayload);
-
-    if (profileError) {
-      // error handled below
+    let cancelled = false;
+    Promise.all([getUserPlan(user.id), getPersonalData(user.id)]).then(([routine, personal]) => {
+      if (cancelled) return;
+      setPlan(routine); setBody(personal);
+      const draft = readLocal(`fittrack_profile_draft_${user.id}`);
+      setFields(draft || { full_name: personal.profile.full_name || user.user_metadata?.full_name || 'Francisco Javier', age: personal.profile.age ?? '',
+        height: routine.preferences.height ?? '', calorieTarget: routine.preferences.calorieTarget ?? '', proteinTarget: routine.preferences.proteinTarget ?? '', phase: routine.preferences.phase || 'deficit' });
+      if (draft) setDirty(true);
+    }).catch(() => { if (!cancelled) setError('No se pudo cargar tu perfil. Reintenta con conexión.'); });
+    return () => { cancelled = true; };
+  }, [user.id, user.user_metadata?.full_name]);
+  useEffect(() => { if (dirty) writeLocal(`fittrack_profile_draft_${user.id}`, fields); }, [dirty, fields, user.id]);
+  const change = (field, value) => { if (saving) return; setFields(previous => ({ ...previous, [field]: value })); setDirty(true); };
+  const handleSave = async event => {
+    event.preventDefault(); if (!plan || saveLock.current) return;
+    const optionalNumber = value => value === '' ? null : Number(value);
+    const age = optionalNumber(fields.age), height = optionalNumber(fields.height), calories = optionalNumber(fields.calorieTarget), protein = optionalNumber(fields.proteinTarget);
+    if (!fields.full_name.trim() || (age != null && (!Number.isInteger(age) || age < 18 || age > 100)) || (height != null && (!Number.isFinite(height) || height < 100 || height > 250)) || (calories != null && (!Number.isInteger(calories) || calories <= 0 || calories > 15000)) || (protein != null && (!Number.isFinite(protein) || protein <= 0 || protein > 1000))) {
+      toast({ variant: 'destructive', title: 'Revisa los datos', description: 'Usa un nombre y cifras válidas. Puedes dejar los objetivos pendientes en blanco.' }); return;
     }
-
-    // Prepare nutrition payload with proper data types
-    const today = new Date().toLocaleDateString('en-CA');
-    const nutritionPayload = {
-      user_id: user.id,
-      date: today,
-      calories_kcal: nutrition.calories_kcal ? parseInt(nutrition.calories_kcal, 10) : null,
-      protein_g: nutrition.protein_g ? parseFloat(nutrition.protein_g) : null,
-      carbs_g: nutrition.carbs_g ? parseFloat(nutrition.carbs_g) : null,
-      fat_g: nutrition.fat_g ? parseFloat(nutrition.fat_g) : null,
-    };
-
-    // Upsert Nutrition
-    const { error: nutritionError } = await supabase
-      .from('user_nutrition')
-      .upsert(nutritionPayload, { onConflict: 'user_id,date' });
-
-    if (nutritionError) {
-      // error handled below
-    }
-
-    if (profileError || nutritionError) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los datos." });
-    } else {
-      toast({ title: "¡Guardado!", description: "Tu perfil y datos de nutrición han sido actualizados." });
-    }
-    setLoading(false);
+    saveLock.current = true; setSaving(true);
+    try {
+      const next = { ...plan, preferences: { ...plan.preferences, height, calorieTarget: calories, proteinTarget: protein, phase: fields.phase } };
+      const result = await updateUserPlan(user.id, next); if (result.error) throw result.error;
+      setPlan(next);
+      const profileResult = await supabase.from('user_profiles').upsert({ id: user.id, full_name: fields.full_name.trim(), age, physical_goal: fields.phase === 'deficit' ? 'Definición' : 'Mantenimiento' });
+      if (profileResult.error) throw new Error('Tus objetivos ya están guardados, pero el perfil no se pudo actualizar. Reintenta para completar el guardado.');
+      const authResult = await supabase.auth.updateUser({ data: { full_name: fields.full_name.trim() } });
+      if (authResult.error) toast({ title: 'Perfil guardado', description: 'El nombre del saludo se actualizará al volver a iniciar sesión.' });
+      else toast({ title: 'Tus objetivos están guardados', description: 'Ya los verás en Hoy. Los cambios de peso se registran allí.' });
+      setDirty(false); removeLocal(`fittrack_profile_draft_${user.id}`);
+    } catch (caught) { toast({ variant: 'destructive', title: 'Guardado pendiente', description: caught.message }); }
+    finally { setSaving(false); saveLock.current = false; }
   };
-
-  const handleAddWeight = async () => {
-    if (!user || !newWeight) return;
-    const today = new Date().toLocaleDateString('en-CA');
-    const { error } = await supabase
-      .from('weight_history')
-      .insert({ user_id: user.id, weight: newWeight, date: today });
-
-    if (!error) {
-      const { error: profileUpdateError } = await supabase
-        .from('user_profiles')
-        .update({ current_weight: newWeight })
-        .eq('id', user.id);
-
-      if (!profileUpdateError) {
-        setWeightHistory(prev => [{ weight: newWeight, date: today }, ...prev].slice(0, 5));
-        setProfile(prev => ({ ...prev, current_weight: newWeight }));
-        setNewWeight('');
-        toast({ title: "Peso añadido", description: "Tu peso ha sido registrado." });
-      }
-    } else {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo añadir el peso." });
-    }
+  const backup = async () => {
+    try {
+      const history = await getWorkoutHistory(user.id);
+      const drafts = {};
+      for (let i = 0; i < localStorage.length; i++) { const key = localStorage.key(i); if (key.includes(user.id) && !key.startsWith('sb-')) drafts[key] = readLocal(key); }
+      const blob = new Blob([JSON.stringify({ format: 'fittrack-backup', version: 1, exportedAt: new Date().toISOString(), userId: user.id, plan, personal: body, history, drafts }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = `fittrack-kiko-${localDate()}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast({ title: 'Copia descargada', description: 'Incluye los datos cargados y borradores de este dispositivo. Consérvala en un lugar privado.' });
+    } catch { toast({ variant: 'destructive', title: 'No se pudo crear la copia', description: 'Reintenta con conexión.' }); }
   };
-
-  return (
-    <div className="min-h-screen p-4 md:p-8 pb-28 bg-dark-bg text-white">
-      <div className="max-w-4xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 mb-8">
-          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors -ml-1">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-3xl font-bold">Perfil del Usuario</h1>
-        </motion.div>
-
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Left Column: Profile & Nutrition */}
-          <div className="space-y-8">
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="card-dark p-6">
-              <h2 className="text-xl font-semibold mb-4">Información Personal</h2>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Nombre</Label>
-                  <Input id="name" value={profile.full_name || ''} onChange={e => handleProfileChange('full_name', e.target.value)} className="bg-dark-card border-white/10" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="age">Edad</Label>
-                    <Input id="age" type="number" value={profile.age || ''} onChange={e => handleProfileChange('age', e.target.value)} className="bg-dark-card border-white/10" />
-                  </div>
-                  <div>
-                    <Label htmlFor="weight">Peso Actual (kg)</Label>
-                    <Input id="weight" type="number" value={profile.current_weight || ''} onChange={e => handleProfileChange('current_weight', e.target.value)} className="bg-dark-card border-white/10" />
-                  </div>
-                </div>
-                <div>
-                  <Label>Objetivo Físico</Label>
-                  <div className="flex gap-2 mt-2">
-                    {goalOptions.map(goal => (
-                      <Button key={goal} onClick={() => handleProfileChange('physical_goal', goal)} variant="ghost" className={`w-full text-sm ${profile.physical_goal === goal ? 'bg-lime text-dark-bg hover:bg-lime/90' : 'bg-dark-card-lighter text-white hover:bg-dark-border'}`}>
-                        {goal}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="card-dark p-6">
-              <h2 className="text-xl font-semibold mb-4">Control Nutricional (Hoy)</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2">
-                  <Flame className="text-orange-400" />
-                  <div>
-                    <Label>Calorías (kcal)</Label>
-                    <Input type="number" value={nutrition.calories_kcal || ''} onChange={e => handleNutritionChange('calories_kcal', e.target.value)} className="bg-dark-card border-white/10" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Beef className="text-red-400" />
-                  <div>
-                    <Label>Proteínas (g)</Label>
-                    <Input type="number" value={nutrition.protein_g || ''} onChange={e => handleNutritionChange('protein_g', e.target.value)} className="bg-dark-card border-white/10" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Wheat className="text-yellow-400" />
-                  <div>
-                    <Label>Carbs (g)</Label>
-                    <Input type="number" value={nutrition.carbs_g || ''} onChange={e => handleNutritionChange('carbs_g', e.target.value)} className="bg-dark-card border-white/10" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Weight className="text-green-400" />
-                  <div>
-                    <Label>Grasas (g)</Label>
-                    <Input type="number" value={nutrition.fat_g || ''} onChange={e => handleNutritionChange('fat_g', e.target.value)} className="bg-dark-card border-white/10" />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Right Column: Weight History */}
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }} className="card-dark p-6">
-            <h2 className="text-xl font-semibold mb-4">Seguimiento de Peso</h2>
-            <div className="flex gap-2 mb-4">
-              <Input type="number" placeholder="Nuevo peso (kg)" value={newWeight} onChange={e => setNewWeight(e.target.value)} className="bg-dark-card border-white/10" />
-              <Button onClick={handleAddWeight} size="icon" className="bg-lime text-dark-bg hover:bg-lime/80 flex-shrink-0"><Plus /></Button>
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-medium">Historial Reciente</h3>
-              {loading ? (
-                <div className="flex justify-center py-4">
-                  <div className="w-8 h-8 border-4 border-lime border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : weightHistory.map((entry, i) => (
-                <div key={i} className="flex justify-between items-center bg-dark-card-lighter p-3 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="text-lime" size={18} />
-                    <span className="font-bold">{entry.weight} kg</span>
-                  </div>
-                  <span className="text-sm text-secondary">{new Date(entry.date).toLocaleDateString()}</span>
-                </div>
-              ))}
-              {weightHistory.length === 0 && !loading && <p className="text-secondary text-center py-4">No hay registros de peso.</p>}
-            </div>
-          </motion.div>
-        </div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mt-8">
-          <Button onClick={handleSave} disabled={loading} className="w-full btn-lime py-6 text-lg font-semibold disabled:opacity-50">
-            <Save className="mr-2 w-5 h-5" /> {loading ? 'Guardando...' : 'Guardar Cambios'}
-          </Button>
-        </motion.div>
-      </div>
-
-      <BottomNav />
-    </div>
-  );
+  const logout = async () => { const result = await signOut(); if (!result?.error) navigate('/login', { replace: true }); };
+  return <main className="page-shell max-w-4xl"><header className="flex items-center gap-3 mb-7"><button onClick={() => navigate('/dashboard')} className="p-3 rounded-xl bg-dark-card" aria-label="Volver a Hoy"><ArrowLeft size={20}/></button><div><p className="eyebrow">TU ESPACIO</p><h1 className="text-2xl font-bold mt-1">Perfil y objetivos</h1></div></header>
+    {error ? <div role="alert" className="card-dark p-6">{error}<button className="btn-dark-pill block py-3 px-5 mt-4" onClick={() => window.location.reload()}>Reintentar</button></div> : !plan ? <div className="card-dark p-8 flex items-center gap-3"><Loader2 className="animate-spin text-lime"/> Cargando tu perfil…</div> : <div className="grid md:grid-cols-2 gap-5 items-start">
+      <form onSubmit={handleSave} className="space-y-5"><section className="card-dark p-6 space-y-4"><h2 className="font-semibold">Sobre ti</h2><label className="block text-sm text-secondary">Nombre<input className="field block w-full mt-1" value={fields.full_name} onChange={e => change('full_name', e.target.value)} required disabled={saving}/></label><div className="grid grid-cols-2 gap-3"><label className="text-sm text-secondary">Edad<input className="field w-full mt-1" type="number" min="18" max="100" value={fields.age} onChange={e => change('age', e.target.value)} disabled={saving}/></label><label className="text-sm text-secondary">Altura (cm)<input className="field w-full mt-1" type="number" min="100" max="250" value={fields.height} onChange={e => change('height', e.target.value)} disabled={saving}/></label></div></section>
+      <section className="card-dark p-6 space-y-4"><h2 className="font-semibold">Tu fase actual</h2><div className="grid grid-cols-2 gap-2">{[['deficit','Perder grasa'],['maintenance','Mantener']].map(([value,label]) => <button key={value} type="button" disabled={saving} aria-pressed={fields.phase === value} onClick={() => change('phase', value)} className={`py-3 rounded-xl text-sm ${fields.phase === value ? 'bg-lime text-dark-bg font-bold' : 'bg-dark-card-lighter'}`}>{label}</button>)}</div><p className="text-secondary text-sm leading-relaxed">En déficit buscamos conservar el rendimiento y observar la tendencia del peso. No hace falta batir una marca en cada sesión.</p><div className="grid grid-cols-2 gap-3"><label className="text-sm text-secondary">Objetivo de kcal/día<input className="field w-full mt-1" type="number" min="1" max="15000" placeholder="Pendiente" value={fields.calorieTarget} onChange={e => change('calorieTarget', e.target.value)} disabled={saving}/></label><label className="text-sm text-secondary">Proteína (g/día)<input className="field w-full mt-1" type="number" min="1" max="1000" placeholder="Pendiente" value={fields.proteinTarget} onChange={e => change('proteinTarget', e.target.value)} disabled={saving}/></label></div><p className="text-secondary text-xs leading-relaxed">Introduce los objetivos del plan que sigues. La app no cambia tu alimentación por un pesaje aislado.</p></section>
+      <button type="submit" disabled={saving || !dirty} className="btn-lime w-full py-4 flex justify-center gap-2 disabled:opacity-40"><Save size={18}/>{saving ? 'Guardando…' : dirty ? 'Guardar mis cambios' : 'Sin cambios pendientes'}</button></form>
+      <div className="space-y-5"><WeightTrend entries={body?.weights || []}/><section className="card-dark p-6"><h2 className="font-semibold mb-2">Tus datos, a mano</h2><p className="text-secondary text-sm mb-4">Descarga una copia de tu rutina, historial y datos cargados. Los vídeos se conservan como referencias, no se descargan.</p><button onClick={backup} className="btn-dark-pill w-full py-3 flex justify-center gap-2"><Download size={18}/> Descargar copia JSON</button></section><button onClick={logout} className="flex items-center gap-2 text-secondary text-sm p-3"><LogOut size={17}/> Cerrar sesión</button></div>
+    </div>}<BottomNav/></main>;
 }

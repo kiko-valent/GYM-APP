@@ -1,16 +1,17 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
+import { MotionConfig } from 'framer-motion';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { Toaster } from '@/components/ui/toaster.jsx';
 import { AuthProvider, useAuth } from '@/contexts/SupabaseAuthContext';
-import LoginPage from '@/pages/LoginPage';
-import RegisterPage from '@/pages/RegisterPage';
-import DashboardPage from '@/pages/DashboardPage';
-import WorkoutPage from '@/pages/WorkoutPage';
-import ProgressPage from '@/pages/ProgressPage';
-import SettingsPage from '@/pages/SettingsPage';
-import ProfilePage from '@/pages/ProfilePage';
-import ErrorNotification from '@/components/ErrorNotification';
+const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const RegisterPage = lazy(() => import('@/pages/RegisterPage'));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const WorkoutPage = lazy(() => import('@/pages/WorkoutPage'));
+const ProgressPage = lazy(() => import('@/pages/ProgressPage'));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
+
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -24,7 +25,7 @@ function PrivateRoute({ children }) {
       </div>
     );
   }
-  return user ? children : <Navigate to="/login" />;
+  return user ? children : <Navigate to="/login" replace />;
 }
 
 function PublicRoute({ children }) {
@@ -39,18 +40,19 @@ function PublicRoute({ children }) {
       </div>
     );
   }
-  return !user ? children : <Navigate to="/dashboard" />;
+  return !user ? children : <Navigate to="/dashboard" replace />;
 }
 
 function App() {
   return (
-    <AuthProvider>
+    <MotionConfig reducedMotion="user"><AuthProvider>
       <Router>
         <Helmet>
-          <title>FitTrack - Tu Entrenador Personal</title>
+          <title>FitTrack · El espacio de Kiko</title>
           <meta name="description" content="Aplicación de entrenamiento personal para seguir tu progreso y alcanzar tus objetivos fitness" />
         </Helmet>
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+        <div className="min-h-screen bg-dark-bg">
+          <Suspense fallback={<div className="page-shell text-secondary flex min-h-[65vh] items-center justify-center">Cargando tu espacio…</div>}>
           <Routes>
             <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
             <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
@@ -62,12 +64,12 @@ function App() {
             <Route path="/" element={<Navigate to="/login" />} />
             {/* Cualquier ruta desconocida (p. ej. marcadores antiguos) vuelve al inicio */}
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          </Routes></Suspense>
           <Toaster />
-          <ErrorNotification />
+
         </div>
       </Router>
-    </AuthProvider>
+    </AuthProvider></MotionConfig>
   );
 }
 

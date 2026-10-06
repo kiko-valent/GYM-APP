@@ -5,7 +5,8 @@ module.exports = {
     es2022: true,
     node: true,
   },
-  extends: ['react-app'],
+  extends: ['eslint:recommended', 'plugin:react/recommended', 'plugin:react-hooks/recommended'],
+  rules: { 'react/prop-types': 'off', 'react/react-in-jsx-scope': 'off' },
   parserOptions: {
     ecmaVersion: 'latest',
     sourceType: 'module',

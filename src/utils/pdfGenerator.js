@@ -214,7 +214,7 @@ export const generateMonthlyPDF = (history, plan, monthKey) => {
   const setsByGroup = {};
   monthSessions.forEach(session => {
     (session.workout_exercises || []).forEach(set => {
-      const group = groupMap[set.exercise_name] || 'sin-asignar';
+      const group = session.evaluation?.setOrder?.find(ex => ex.name === set.exercise_name)?.muscleGroup || groupMap[set.exercise_name] || 'sin-asignar';
       setsByGroup[group] = (setsByGroup[group] || 0) + 1;
     });
   });

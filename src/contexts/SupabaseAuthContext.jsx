@@ -125,14 +125,12 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = useCallback(async () => {
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) throw error;
-    } catch (error) {
-      console.error("Error signing out:", error.message);
-      handleAuthError(error, 'sign out');
-    } finally {
       handleSession(null);
-    }
+      try { localStorage.removeItem('gym_error_log'); } catch { /* almacenamiento opcional */ }
+      return { error: null };
+    } catch (error) { handleAuthError(error, 'sign out'); return { error }; }
   }, [handleSession, handleAuthError]);
 
   const value = useMemo(() => ({

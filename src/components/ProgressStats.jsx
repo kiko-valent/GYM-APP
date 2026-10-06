@@ -13,7 +13,7 @@ export default function ProgressStats({ history, userId }) {
   useEffect(() => {
     const fetchPlan = async () => {
       if (userId) {
-        const plan = await getUserPlan(userId);
+        const plan = await getUserPlan(userId).catch(() => ({ training_days: [] }));
         setTrainingDays(plan.training_days || []);
       }
       setLoading(false);
@@ -81,7 +81,7 @@ export default function ProgressStats({ history, userId }) {
       icon: Flame,
       label: 'RACHA',
       value: loading ? '...' : calculateStreak(),
-      suffix: 'Días',
+      suffix: calculateStreak() === 1 ? 'día' : 'días',
       bgColor: 'bg-dark-card-lighter',
       iconColor: 'text-cyan'
     },

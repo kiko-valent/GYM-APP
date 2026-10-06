@@ -3,7 +3,6 @@ import { FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { getUserPlan } from '@/utils/workoutData';
-import { generateMonthlyPDF } from '@/utils/pdfGenerator';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -36,6 +35,7 @@ export default function MonthlyReport({ history, userId }) {
     setGenerating(true);
     try {
       const plan = await getUserPlan(userId);
+      const { generateMonthlyPDF } = await import('@/utils/pdfGenerator');
       const ok = generateMonthlyPDF(history, plan, selectedMonth || months[0]);
       if (!ok) {
         toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay sesiones en ese mes.' });

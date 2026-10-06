@@ -1,6 +1,6 @@
 -- Enable Storage
 insert into storage.buckets (id, name, public)
-values ('technique-videos', 'technique-videos', true)
+values ('technique-videos', 'technique-videos', false)
 on conflict (id) do nothing;
 
 -- Drop existing policies to avoid conflicts
@@ -11,24 +11,24 @@ drop policy if exists "Authenticated Upload Docs" on storage.objects;
 
 create policy "Public Access"
   on storage.objects for select
-  using ( bucket_id = 'technique-videos' );
+  using ( bucket_id = 'technique-videos' and (storage.foldername(name))[1] = auth.uid()::text );
 
 create policy "Authenticated Upload"
   on storage.objects for insert
-  with check ( bucket_id = 'technique-videos' and auth.role() = 'authenticated' );
+  with check ( bucket_id = 'technique-videos' and auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text );
 
 -- Enable Documents Storage
 insert into storage.buckets (id, name, public)
-values ('documents', 'documents', true)
+values ('documents', 'documents', false)
 on conflict (id) do nothing;
 
 create policy "Public Access Docs"
   on storage.objects for select
-  using ( bucket_id = 'documents' );
+  using ( bucket_id = 'documents' and (storage.foldername(name))[1] = auth.uid()::text );
 
 create policy "Authenticated Upload Docs"
   on storage.objects for insert
-  with check ( bucket_id = 'documents' and auth.role() = 'authenticated' );
+  with check ( bucket_id = 'documents' and auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text );
 
 -- Nutrition Tables
 create table if not exists nutrition_plans (

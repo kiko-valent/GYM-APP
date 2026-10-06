@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Trash2, PlusCircle, Save, Loader2, AlertCircle, StickyNote, Gauge, Target, Calendar, ChevronUp, ChevronDown, Video } from 'lucide-react';
@@ -11,6 +11,8 @@ import { getUserPlan, updateUserPlan, normalizePlanData } from '@/utils/workoutD
 import { useToast } from "@/components/ui/use-toast.js";
 import BottomNav from '@/components/BottomNav.jsx';
 import { MUSCLE_GROUPS } from '@/utils/progression';
+import { validatePlan } from '@/utils/workoutModel';
+import { newId, readLocal, writeLocal, removeLocal } from '@/lib/localStore';
 
 const allDays = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 
@@ -25,6 +27,14 @@ export default function SettingsPage() {
   // Save states
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const saveLock = useRef(false);
+
+  useEffect(() => {
+    if (isDirty && plan) writeLocal(`fittrack_routine_draft_${user.id}`, plan);
+    const warn = event => { if (isDirty) { event.preventDefault(); event.returnValue = ''; } };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [isDirty, plan, user.id]);
 
   // Fetch initial data
   useEffect(() => {
@@ -38,7 +48,9 @@ export default function SettingsPage() {
             if (!userPlan.preferences) {
               userPlan.preferences = { trackIntensity: true };
             }
-            setPlan(userPlan);
+            const draft = readLocal(`fittrack_routine_draft_${user.id}`);
+            setPlan(draft || userPlan);
+            if (draft) setIsDirty(true);
             setLoading(false);
           }
         } catch (error) {
@@ -52,11 +64,16 @@ export default function SettingsPage() {
   }, [user]);
 
   const handleManualSave = async () => {
-    if (!plan) return;
+    if (!plan || saveLock.current) return;
+    const invalid = validatePlan(plan);
+    if (invalid) { toast({ variant: 'destructive', title: 'Revisa tu rutina', description: invalid }); return; }
+    saveLock.current = true;
 
     setIsSaving(true);
     try {
-      await updateUserPlan(user.id, plan);
+      const { error } = await updateUserPlan(user.id, plan);
+      if (error) throw error;
+      removeLocal(`fittrack_routine_draft_${user.id}`);
       setIsDirty(false);
       toast({
         title: "¡Guardado exitoso! 💪",
@@ -67,10 +84,11 @@ export default function SettingsPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "No se pudieron guardar los cambios. Inténtalo de nuevo.",
+        description: error.message || "No se pudieron guardar los cambios. El borrador sigue en este dispositivo.",
       });
     } finally {
       setIsSaving(false);
+      saveLock.current = false;
     }
   };
 
@@ -82,6 +100,7 @@ export default function SettingsPage() {
   };
 
   const handleDayToggle = (day) => {
+    if (saveLock.current) return;
     setPlan(prevPlan => {
       if (!prevPlan) return prevPlan;
       const newTrainingDays = prevPlan.training_days.includes(day)
@@ -99,6 +118,7 @@ export default function SettingsPage() {
   };
 
   const handleExerciseChange = (day, exIndex, field, value) => {
+    if (saveLock.current) return;
     setPlan(prevPlan => {
       if (!prevPlan) return prevPlan;
       const newPlan = JSON.parse(JSON.stringify(prevPlan));
@@ -111,6 +131,7 @@ export default function SettingsPage() {
   };
 
   const handlePreferenceChange = (checked) => {
+    if (saveLock.current) return;
     setPlan(prevPlan => {
       if (!prevPlan) return prevPlan;
       const newPlan = {
@@ -126,13 +147,17 @@ export default function SettingsPage() {
   };
 
   const addExercise = (day) => {
+    if (saveLock.current) return;
     setPlan(prevPlan => {
       if (!prevPlan) return prevPlan;
       const newPlan = JSON.parse(JSON.stringify(prevPlan));
       // Initializing with empty description and targets
       const newExercise = {
+        id: newId(),
         name: '',
         sets: 4,
+        rest: 90,
+        increment: 2.5,
         repsMin: 8,
         repsMax: 12,
         muscleGroup: '',
@@ -151,6 +176,7 @@ export default function SettingsPage() {
   };
 
   const moveExercise = (day, exIndex, direction) => {
+    if (saveLock.current) return;
     setPlan(prevPlan => {
       if (!prevPlan) return prevPlan;
       const newPlan = JSON.parse(JSON.stringify(prevPlan));
@@ -164,6 +190,7 @@ export default function SettingsPage() {
   };
 
   const copyDayTo = (sourceDay, targetDay) => {
+    if (saveLock.current) return;
     if (!targetDay || targetDay === sourceDay) return;
     setPlan(prevPlan => {
       if (!prevPlan) return prevPlan;
@@ -173,7 +200,7 @@ export default function SettingsPage() {
       if (!newPlan.workouts[targetDay]) {
         newPlan.workouts[targetDay] = { exercises: [] };
       }
-      newPlan.workouts[targetDay].exercises.push(...JSON.parse(JSON.stringify(sourceExercises)));
+      newPlan.workouts[targetDay].exercises.push(...sourceExercises.map(ex => ({ ...ex, id: newId() })));
       if (!newPlan.training_days.includes(targetDay)) {
         newPlan.training_days.push(targetDay);
       }
@@ -187,6 +214,7 @@ export default function SettingsPage() {
   };
 
   const removeExercise = (day, exIndex) => {
+    if (saveLock.current) return;
     setPlan(prevPlan => {
       if (!prevPlan) return prevPlan;
       const newPlan = JSON.parse(JSON.stringify(prevPlan));
@@ -212,7 +240,7 @@ export default function SettingsPage() {
   const sortedTrainingDays = [...plan.training_days].sort((a, b) => allDays.indexOf(a) - allDays.indexOf(b));
 
   return (
-    <div className="min-h-screen p-4 md:p-8 pb-28 bg-dark-bg">
+    <div className="page-shell">
       <div className="max-w-4xl mx-auto">
         {/* Header with Save Status */}
         <motion.div
@@ -221,13 +249,13 @@ export default function SettingsPage() {
           className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8"
         >
           <div className="flex items-center gap-4">
-            <Button onClick={() => navigate('/dashboard')} variant="outline" className="bg-dark-card border-dark-border text-white hover:bg-dark-card-lighter">
+            <Button onClick={() => navigate('/dashboard')} aria-label="Volver a Hoy" variant="outline" className="bg-dark-card border-dark-border text-white hover:bg-dark-card-lighter">
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
               <h1 className="text-3xl font-bold text-white">Mi Rutina</h1>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                <p className="text-secondary">Personaliza tus días y ejercicios</p>
+                <p className="text-secondary">Tu rutina actual. Ajusta solo lo que necesites.</p>
                 <div className="hidden md:block h-4 w-px bg-white/20"></div>
                 <div className="min-h-[24px] flex items-center">
                   {getSaveStatusDisplay()}
@@ -295,8 +323,9 @@ export default function SettingsPage() {
               transition={{ delay: 0.2 + dayIndex * 0.05 }}
               className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20 mb-6"
             >
-              <div className="flex justify-between items-center mb-6 gap-3">
-                <h3 className="text-2xl font-bold text-white capitalize">{day}</h3>
+              <details>
+              <summary className="cursor-pointer capitalize font-bold text-xl py-2">{day}<span className="text-xs font-normal text-secondary ml-3">{plan.workouts[day]?.exercises.length || 0} ejercicios</span></summary>
+              <div className="flex justify-end items-center my-4 gap-3">
                 <div className="flex items-center gap-2">
                   {(plan.workouts[day]?.exercises.length || 0) > 0 && (
                     <select
@@ -318,7 +347,7 @@ export default function SettingsPage() {
 
               <div className="space-y-4">
                 {plan.workouts[day]?.exercises.map((ex, exIndex) => (
-                  <div key={exIndex} className="bg-dark-card-lighter p-4 rounded-xl border border-dark-border hover:border-secondary/30 transition-colors">
+                  <div key={ex.id} className="bg-dark-card-lighter p-4 rounded-xl border border-dark-border hover:border-secondary/30 transition-colors">
 
                     {/* Main Stats Row */}
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end mb-3">
@@ -336,7 +365,7 @@ export default function SettingsPage() {
                           <Label className="text-xs text-cyan uppercase font-bold tracking-wider text-center block">Series</Label>
                           <Input
                             type="number"
-                            value={ex.sets}
+                            min="1" max="20" aria-label={`Series de ${ex.name}`} value={ex.sets}
                             onChange={(e) => handleExerciseChange(day, exIndex, 'sets', parseInt(e.target.value) || 0)}
                             className="bg-white/10 border-white/20 text-white text-center focus:bg-white/20"
                           />
@@ -345,7 +374,7 @@ export default function SettingsPage() {
                           <Label className="text-xs text-cyan uppercase font-bold tracking-wider text-center block">Reps mín</Label>
                           <Input
                             type="number"
-                            value={ex.repsMin ?? ex.reps ?? ''}
+                            min="1" max="100" aria-label={`Repeticiones mínimas de ${ex.name}`} value={ex.repsMin ?? ex.reps ?? ''}
                             onChange={(e) => handleExerciseChange(day, exIndex, 'repsMin', parseInt(e.target.value) || 0)}
                             className="bg-white/10 border-white/20 text-white text-center focus:bg-white/20"
                           />
@@ -354,7 +383,7 @@ export default function SettingsPage() {
                           <Label className="text-xs text-cyan uppercase font-bold tracking-wider text-center block">Reps máx</Label>
                           <Input
                             type="number"
-                            value={ex.repsMax ?? ex.reps ?? ''}
+                            min="1" max="100" aria-label={`Repeticiones máximas de ${ex.name}`} value={ex.repsMax ?? ex.reps ?? ''}
                             onChange={(e) => handleExerciseChange(day, exIndex, 'repsMax', parseInt(e.target.value) || 0)}
                             className="bg-white/10 border-white/20 text-white text-center focus:bg-white/20"
                           />
@@ -393,6 +422,11 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div><Label htmlFor={`rest-${ex.id}`} className="text-xs text-secondary">Descanso (segundos)</Label><Input id={`rest-${ex.id}`} type="number" min="10" max="600" step="15" value={ex.rest ?? 90} onChange={e => handleExerciseChange(day, exIndex, 'rest', Number(e.target.value))} /></div>
+                      <div><Label htmlFor={`increment-${ex.id}`} className="text-xs text-secondary">Incremento de carga (kg)</Label><Input id={`increment-${ex.id}`} type="number" min="0.25" max="20" step="0.25" value={ex.increment ?? 2.5} onChange={e => handleExerciseChange(day, exIndex, 'increment', Number(e.target.value))} /></div>
+                    </div>
+                    <details className="border-t border-dark-border pt-3"><summary className="cursor-pointer text-secondary text-sm mb-3">Técnica, vídeo y otros ajustes</summary>
                     {/* Muscle Group Row - alimenta el volumen semanal por grupo en Progreso */}
                     <div className="space-y-1.5 mb-3">
                       <Label className="text-xs text-cyan uppercase font-bold tracking-wider">Grupo muscular</Label>
@@ -467,6 +501,7 @@ export default function SettingsPage() {
                       />
                     </div>
 
+                    </details>
                   </div>
                 ))}
               </div>
@@ -478,6 +513,7 @@ export default function SettingsPage() {
               >
                 <PlusCircle size={16} className="mr-2" /> Añadir Ejercicio
               </Button>
+              </details>
             </motion.div>
           ))}
         </AnimatePresence>

@@ -1,22 +1,17 @@
 import { supabase } from '@/lib/customSupabaseClient';
 import { logError } from '@/utils/errorLogger';
 
-const DAY_ALIASES = {
-  'miercoles': 'miércoles',
-  'sabado': 'sábado',
-};
-function normalizeDayName(day) {
-  return DAY_ALIASES[day?.toLowerCase()] ?? day;
-}
-export function normalizePlanData(plan) {
-  if (!plan) return plan;
-  const normalizedDays = (plan.training_days || []).map(normalizeDayName);
-  const normalizedWorkouts = {};
-  Object.entries(plan.workouts || {}).forEach(([key, val]) => {
-    normalizedWorkouts[normalizeDayName(key)] = val;
-  });
-  return { ...plan, training_days: normalizedDays, workouts: normalizedWorkouts };
-}
+import { localDate, normalizeDayName, normalizePlanData, validatePlan, validSets } from './workoutModel';
+import { readLocal, writeLocal, removeLocal, newId } from '@/lib/localStore';
+import { enqueueSave, drainSaves } from '@/lib/saveQueue';
+export { normalizePlanData };
+const planCache = new Map();
+const planRequests = new Map();
+const planVersions = new Map();
+const historyCache = new Map();
+const historyRequests = new Map();
+const planKey = userId => `fittrack_plan_${userId}`;
+const progressQueueKey = (userId, day, date) => `${userId}:${normalizeDayName(day)}:${date}`;
 
 const defaultPlan = {
   training_days: ['lunes', 'martes', 'jueves', 'viernes'],
@@ -40,254 +35,156 @@ const handleSupabaseError = (error, context, metadata = null) => {
   return error;
 };
 
-export async function getUserPlan(userId) {
-  try {
-    const { data, error } = await supabase
-      .from('user_plans')
-      .select('plan_data')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (error && error.code !== 'PGRST116') {
-      handleSupabaseError(error, 'getUserPlan');
-      return defaultPlan;
-    }
-
-    if (data) {
-      return data.plan_data;
-    }
-
-    // Create default plan if none exists
-    const { data: newPlanData, error: insertError } = await supabase
-      .from('user_plans')
-      .insert({ user_id: userId, plan_data: defaultPlan })
-      .select('plan_data')
-      .single();
-
-    if (insertError) {
-      handleSupabaseError(insertError, 'getUserPlan (create default)');
-      return defaultPlan;
-    }
-
-    return newPlanData.plan_data;
-  } catch (e) {
-    handleSupabaseError(e, 'getUserPlan (unexpected)');
-    return defaultPlan;
+export async function getUserPlan(userId, { fresh = false } = {}) {
+  const cached = planCache.get(userId);
+  if (!fresh && cached && Date.now() - cached.at < 30000) return cached.plan;
+  const diskPlan = readLocal(planKey(userId));
+  if (!fresh && (cached?.plan || diskPlan)) {
+    if (!planRequests.has(userId)) void getUserPlan(userId, { fresh: true }).catch(() => {});
+    return normalizePlanData(cached?.plan || diskPlan);
   }
+  if (planRequests.has(userId)) return planRequests.get(userId);
+  const version = planVersions.get(userId) || 0;
+  const request = (async () => {
+    try {
+      const { data, error } = await supabase.from('user_plans').select('plan_data').eq('user_id', userId).maybeSingle();
+      if (error) throw error;
+      let plan = data?.plan_data;
+      if (!plan) {
+        const result = await supabase.from('user_plans').upsert({ user_id: userId, plan_data: normalizePlanData(defaultPlan) }, { onConflict: 'user_id', ignoreDuplicates: true }).select('plan_data').maybeSingle();
+        if (result.error) throw result.error;
+        plan = result.data?.plan_data;
+        if (!plan) {
+          const existing = await supabase.from('user_plans').select('plan_data').eq('user_id', userId).single();
+          if (existing.error) throw existing.error;
+          plan = existing.data.plan_data;
+        }
+      }
+      plan = normalizePlanData(plan);
+      if (version !== (planVersions.get(userId) || 0)) return planCache.get(userId)?.plan || plan;
+      planCache.set(userId, { plan, at: Date.now() });
+      writeLocal(planKey(userId), plan);
+      return plan;
+    } catch (error) {
+      const offlinePlan = cached?.plan || readLocal(planKey(userId));
+      if (offlinePlan) return normalizePlanData(offlinePlan);
+      handleSupabaseError(error, 'getUserPlan');
+      throw error;
+    }
+  })();
+  planRequests.set(userId, request);
+  try { return await request; } finally { planRequests.delete(userId); }
 }
 
 export async function updateUserPlan(userId, planData) {
+  const plan = normalizePlanData(planData);
+  const invalid = validatePlan(plan);
+  if (invalid) return { error: new Error(invalid) };
   try {
-    const { data, error } = await supabase
-      .from('user_plans')
-      .update({ plan_data: planData, updated_at: new Date().toISOString() })
-      .eq('user_id', userId)
-      .select();
-
-    if (error) {
-      handleSupabaseError(error, 'updateUserPlan');
-      return { data: null, error };
-    }
-
-    if (!data || data.length === 0) {
-      const { data: insertData, error: insertError } = await supabase
-        .from('user_plans')
-        .insert({ user_id: userId, plan_data: planData })
-        .select();
-
-      if (insertError) {
-        handleSupabaseError(insertError, 'updateUserPlan (insert)');
-        return { data: null, error: insertError };
-      }
-      return { data: insertData, error: null };
-    }
-
-    return { data, error: null };
-  } catch (e) {
-    handleSupabaseError(e, 'updateUserPlan (unexpected)');
-    return { data: null, error: e };
-  }
+    const result = await supabase.from('user_plans').upsert({ user_id: userId, plan_data: plan, updated_at: new Date().toISOString() }, { onConflict: 'user_id' }).select();
+    if (result.error) throw result.error;
+    if (!result.data?.length) throw new Error('El servidor no ha confirmado el guardado.');
+    planVersions.set(userId, (planVersions.get(userId) || 0) + 1);
+    planCache.set(userId, { plan, at: Date.now() });
+    writeLocal(planKey(userId), plan);
+    window.dispatchEvent(new Event('fittrack-plan-updated'));
+    return { data: result.data, error: null };
+  } catch (error) { handleSupabaseError(error, 'updateUserPlan'); return { error }; }
 }
 
-
-export async function getWorkoutPlanForDay(userId, day) {
-  try {
-    const plan = await getUserPlan(userId);
-    const workout = plan.workouts?.[day];
-    if (!workout) {
-      return { title: `Entrenamiento ${day}`, exercises: [] };
-    }
-    return {
-      title: `Entrenamiento ${day.charAt(0).toUpperCase() + day.slice(1)}`,
-      exercises: workout.exercises || []
-    };
-  } catch (e) {
-    handleSupabaseError(e, 'getWorkoutPlanForDay');
-    return { title: `Entrenamiento ${day}`, exercises: [] };
-  }
+export async function getWorkoutPlanForDay(userId, rawDay) {
+  const day = normalizeDayName(rawDay);
+  const plan = await getUserPlan(userId);
+  return { title: plan.workouts?.[day]?.name || `Entrenamiento ${day}`, exercises: plan.workouts?.[day]?.exercises || [] };
 }
 
+const sessionRequests = new Map();
 export async function saveWorkoutSession(userId, session) {
-  try {
-    const { data: sessionData, error: sessionError } = await supabase
-      .from('workout_sessions')
-      .insert({
-        user_id: userId,
-        day: session.day,
-        date: session.date,
-        evaluation: { feeling: session.evaluation.feeling },
-        notes: session.evaluation.notes,
-      })
-      .select()
-      .single();
-
-    if (sessionError) {
-      handleSupabaseError(sessionError, 'saveWorkoutSession');
-      return { error: sessionError };
-    }
-
-    // La columna weight debe ser numeric en Supabase para no perder microcargas (62.5kg)
-    const buildRows = (roundWeights) => session.exercises.flatMap(exercise =>
-      exercise.sets.map(set => {
-        const w = parseFloat(set.weight) || 0;
-        return {
-          session_id: sessionData.id,
-          exercise_name: exercise.name,
-          reps: parseInt(set.reps, 10) || 0,
-          weight: roundWeights ? Math.round(w) : w,
-          rir: set.rir != null ? parseInt(set.rir, 10) : null,
-          rpe: set.rpe != null ? parseInt(set.rpe, 10) : null
-        };
-      })
-    );
-
-    let { error: exercisesError } = await supabase
-      .from('workout_exercises')
-      .insert(buildRows(false));
-
-    // 22P02: la columna weight aún es integer en la BD y rechaza decimales.
-    // Reintentamos redondeando para no perder la sesión del usuario.
-    let roundedWeights = false;
-    if (exercisesError && exercisesError.code === '22P02') {
-      handleSupabaseError(exercisesError, 'saveWorkoutSession (exercises, retry redondeando)');
-      const retry = await supabase
-        .from('workout_exercises')
-        .insert(buildRows(true));
-      exercisesError = retry.error;
-      roundedWeights = !exercisesError;
-    }
-
-    if (exercisesError) {
-      handleSupabaseError(exercisesError, 'saveWorkoutSession (exercises)');
-      // Borra la sesión huérfana para que no aparezca vacía en el historial
-      await supabase.from('workout_sessions').delete().eq('id', sessionData.id);
-      return { error: exercisesError };
-    }
-
-    return { error: null, roundedWeights };
-  } catch (e) {
-    handleSupabaseError(e, 'saveWorkoutSession (unexpected)');
-    return { error: e };
+  if (!session.sessionKey) return { error: new Error('No se ha identificado el entrenamiento. Recarga para recuperar el borrador.') };
+  if (!session.exercises?.length || session.exercises.some(ex => !ex.name?.trim() || !ex.sets?.length || !validSets(ex.sets, 20))) {
+    return { error: new Error('Revisa las series antes de guardar: peso de 0 a 1000 kg, repeticiones de 1 a 100 y RIR de 0 a 10.') };
   }
+  const key = `${userId}:${session.sessionKey}`;
+  if (sessionRequests.has(key)) return sessionRequests.get(key);
+  const save = async () => {
+    try {
+      const evaluation = { ...session.evaluation, sessionKey: session.sessionKey, durationMinutes: session.durationMinutes,
+        setOrder: session.exercises.map(ex => ({ name: ex.name, exerciseId: ex.id, muscleGroup: ex.muscleGroup, sets: ex.sets })) };
+      const payload = { ...session, day: normalizeDayName(session.day), evaluation };
+      const rpc = await supabase.rpc('save_workout_session', { p_session: payload });
+      if (!rpc.error) { historyCache.delete(userId); return { error: null, atomic: true }; }
+      // Compatibilidad con la BD actual hasta aplicar la migración. Nunca redondear microcargas.
+      if (rpc.error.code !== 'PGRST202' && rpc.error.code !== '42883') throw rpc.error;
+      let { data: saved, error: lookupError } = await supabase.from('workout_sessions').select('id, evaluation, workout_exercises(id)')
+        .eq('user_id', userId).contains('evaluation', { sessionKey: session.sessionKey }).maybeSingle();
+      if (lookupError) throw lookupError;
+      if (saved?.evaluation?.finished === true) return { error: null, atomic: false };
+      if (!saved) {
+        const result = await supabase.from('workout_sessions').insert({ user_id: userId, day: payload.day, date: payload.date,
+          evaluation: { ...evaluation, finished: false }, notes: session.evaluation.notes }).select().single();
+        if (result.error) throw result.error;
+        saved = result.data;
+      }
+      const rows = session.exercises.flatMap(ex => ex.sets.map(set => ({ session_id: saved.id, exercise_name: ex.name,
+        weight: Number(set.weight), reps: Number(set.reps), rir: set.rir ?? null, rpe: set.rpe ?? null })));
+      const existing = saved.workout_exercises?.length || 0;
+      if (existing && existing !== rows.length) throw new Error('Hay un guardado parcial. El borrador sigue seguro; aplica la migración antes de reintentarlo.');
+      if (!existing) {
+        const result = await supabase.from('workout_exercises').insert(rows);
+        if (result.error) {
+          if (result.error.code === '22P02') throw new Error('La base de datos necesita la migración para guardar los pesos decimales exactos. Tu borrador sigue guardado.');
+          throw result.error;
+        }
+      }
+      const finish = await supabase.from('workout_sessions').update({ evaluation: { ...evaluation, finished: true } }).eq('id', saved.id).eq('user_id', userId);
+      if (finish.error) throw finish.error;
+      historyCache.delete(userId);
+      return { error: null, atomic: false };
+    } catch (error) { handleSupabaseError(error, 'saveWorkoutSession'); return { error }; }
+  };
+  const request = (globalThis.navigator?.locks?.request ? navigator.locks.request(`fittrack-session:${key}`, save) : save());
+  sessionRequests.set(key, request);
+  try { return await request; } finally { sessionRequests.delete(key); }
 }
 
 export async function getWorkoutHistory(userId) {
-  try {
-    const { data, error } = await supabase
-      .from('workout_sessions')
-      .select(`
-        *,
-        workout_exercises (
-          exercise_name,
-          reps,
-          weight,
-          rir,
-          rpe
-        )
-      `)
-      .eq('user_id', userId)
-      .order('date', { ascending: false });
-
-    if (error) {
-      handleSupabaseError(error, 'getWorkoutHistory');
-      return [];
-    }
-
-    return data;
-  } catch (e) {
-    handleSupabaseError(e, 'getWorkoutHistory (unexpected)');
-    return [];
-  }
+  const cached = historyCache.get(userId);
+  if (cached && Date.now() - cached.at < 10000) return cached.history;
+  if (historyRequests.has(userId)) return historyRequests.get(userId);
+  const request = (async () => {
+    try {
+      const { data, error } = await supabase.from('workout_sessions').select('*, workout_exercises(*)').eq('user_id', userId).order('date', { ascending: false });
+      if (error) throw error;
+      const history = (data || []).filter(session => session.evaluation?.finished !== false);
+      historyCache.set(userId, { history, at: Date.now() });
+      writeLocal(`fittrack_history_${userId}`, history);
+      return history;
+    } catch (error) { handleSupabaseError(error, 'getWorkoutHistory'); return readLocal(`fittrack_history_${userId}`, []); }
+  })();
+  historyRequests.set(userId, request);
+  try { return await request; } finally { historyRequests.delete(userId); }
 }
 
-// Última sesión del ejercicio buscada por nombre (no por día de la semana,
-// para que mover un ejercicio a otro día no pierda su historial).
-// Devuelve TODAS las series de esa sesión, en orden de inserción.
-export async function getPreviousWorkout(userId, exerciseName) {
-  try {
-    const { data, error } = await supabase
-      .from('workout_sessions')
-      .select('date, evaluation, notes, workout_exercises!inner(id, reps, weight, rir)')
-      .eq('user_id', userId)
-      .eq('workout_exercises.exercise_name', exerciseName)
-      .order('date', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error && error.code !== 'PGRST116') {
-      handleSupabaseError(error, 'getPreviousWorkout');
-      return null;
-    }
-
-    if (!data || !data.workout_exercises || data.workout_exercises.length === 0) {
-      return null;
-    }
-
-    const sets = [...data.workout_exercises]
-      .sort((a, b) => (a.id > b.id ? 1 : a.id < b.id ? -1 : 0))
-      .map(s => ({ reps: s.reps, weight: s.weight, rir: s.rir }));
-
-    return {
-      date: data.date,
-      sets,
-      feeling: data.evaluation?.feeling,
-      notes: data.notes
-    };
-  } catch (e) {
-    handleSupabaseError(e, 'getPreviousWorkout (unexpected)');
-    return null;
+export async function getPreviousWorkout(userId, exerciseName, exerciseId) {
+  const history = await getWorkoutHistory(userId);
+  for (const session of history) {
+    const recorded = session.evaluation?.setOrder?.find(ex => (exerciseId && ex.exerciseId === exerciseId) || ex.name === exerciseName);
+    const rows = (session.workout_exercises || []).filter(row => (exerciseId && row.exercise_id === exerciseId) || row.exercise_name === exerciseName);
+    if (!recorded && !rows.length) continue;
+    const ordered = Boolean(recorded || rows.every(row => row.set_number != null));
+    const sets = recorded?.sets || (ordered ? rows.sort((a,b) => a.set_number - b.set_number) : rows).map(row => ({ reps: row.reps, weight: row.weight, rir: row.rir }));
+    return { date: session.date, sets, ordered, feeling: session.evaluation?.feeling, notes: session.notes };
   }
+  return null;
 }
 
 export async function deleteWorkoutSession(sessionId) {
   try {
-    // First delete related exercises
-    const { error: exercisesError } = await supabase
-      .from('workout_exercises')
-      .delete()
-      .eq('session_id', sessionId);
-
-    if (exercisesError) {
-      handleSupabaseError(exercisesError, 'deleteWorkoutSession (exercises)');
-      return { error: exercisesError };
-    }
-
-    // Then delete the session
-    const { error: sessionError } = await supabase
-      .from('workout_sessions')
-      .delete()
-      .eq('id', sessionId);
-
-    if (sessionError) {
-      handleSupabaseError(sessionError, 'deleteWorkoutSession (session)');
-      return { error: sessionError };
-    }
-
+    const { error } = await supabase.from('workout_sessions').delete().eq('id', sessionId);
+    if (error) throw error;
+    historyCache.clear();
     return { error: null };
-  } catch (e) {
-    handleSupabaseError(e, 'deleteWorkoutSession (unexpected)');
-    return { error: e };
-  }
+  } catch (error) { handleSupabaseError(error, 'deleteWorkoutSession'); return { error }; }
 }
 
 // Technique Videos
@@ -305,7 +202,7 @@ export async function getTechniqueVideo(userId, exerciseName) {
       return null;
     }
 
-    return data?.video_url || null;
+    return data?.video_url ? resolveTechniqueVideo(data.video_url) : null;
   } catch (e) {
     handleSupabaseError(e, 'getTechniqueVideo (unexpected)');
     return null;
@@ -328,10 +225,7 @@ export async function uploadTechniqueVideo(userId, exerciseName, file) {
       return { error: uploadError };
     }
 
-    // 2. Get Public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('technique-videos')
-      .getPublicUrl(filePath);
+    const videoReference = `storage:technique-videos/${filePath}`;
 
     // 3. Save to DB
     const { error: dbError } = await supabase
@@ -339,7 +233,7 @@ export async function uploadTechniqueVideo(userId, exerciseName, file) {
       .upsert({
         user_id: userId,
         exercise_name: exerciseName,
-        video_url: publicUrl
+        video_url: videoReference
       }, { onConflict: 'user_id, exercise_name' });
 
     if (dbError) {
@@ -347,205 +241,106 @@ export async function uploadTechniqueVideo(userId, exerciseName, file) {
       return { error: dbError };
     }
 
-    return { publicUrl, error: null };
+    return { publicUrl: await resolveTechniqueVideo(videoReference), error: null };
   } catch (e) {
     handleSupabaseError(e, 'uploadTechniqueVideo (unexpected)');
     return { error: e };
   }
 }
 
-// ==========================================
-// In-Progress Workout Persistence (localStorage)
-// ==========================================
+const getProgressKey = (userId, day, date) => `workout_progress_${userId}_${normalizeDayName(day)}_${date}`;
+const receiptKey = (userId, day, date) => `workout_receipt_${userId}_${normalizeDayName(day)}_${date}`;
 
-const getProgressKey = (userId, day) => `workout_progress_${userId}_${day}`;
-
-/**
- * Save current workout progress to localStorage.
- * @param {string} userId
- * @param {string} day - e.g., 'lunes'
- * @param {Object} exercisesState - { 0: { sets: [...], completed: true }, ... }
- * @param {number} currentExerciseIndex
- */
-export function saveWorkoutProgress(userId, day, exercisesState, currentExerciseIndex) {
-  try {
-    const key = getProgressKey(userId, day);
-    const data = {
-      exercisesState,
-      currentExerciseIndex,
-      savedAt: new Date().toISOString()
-    };
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (e) {
-    console.error('Failed to save workout progress to localStorage:', e);
-  }
+export function saveWorkoutProgress(userId, day, exercisesState, currentExerciseIndex, metadata = {}) {
+  const date = metadata.workoutDate || localDate();
+  const previous = readLocal(getProgressKey(userId, day, date));
+  const data = { ...previous, ...metadata, version: 2, workoutDate: date, exercisesState, currentExerciseIndex,
+    sessionKey: metadata.sessionKey || previous?.sessionKey || newId(), startedAt: metadata.startedAt || previous?.startedAt || Date.now(), savedAt: new Date().toISOString() };
+  const saved = writeLocal(getProgressKey(userId, day, date), data);
+  return { ...data, saved };
 }
 
-/**
- * Load saved workout progress from localStorage.
- * @param {string} userId
- * @param {string} day
- * @returns {{ exercisesState: Object, currentExerciseIndex: number, savedAt: string } | null}
- */
-export function loadWorkoutProgress(userId, day) {
-  try {
-    const key = getProgressKey(userId, day);
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error('Failed to load workout progress from localStorage:', e);
-    return null;
-  }
+export function loadWorkoutProgress(userId, day, date = localDate()) {
+  const draft = readLocal(getProgressKey(userId, day, date));
+  if (draft?.workoutDate === date) return draft;
+  const legacy = readLocal(`workout_progress_${userId}_${normalizeDayName(day)}`);
+  if (!legacy?.savedAt || localDate(new Date(legacy.savedAt)) !== date) return null;
+  // Sin identidad no hay una recuperación segura; preservar el original sin asignarlo a otro ejercicio.
+  return legacy;
 }
 
-/**
- * Clear saved workout progress from localStorage (call after final save).
- * @param {string} userId
- * @param {string} day
- */
-export function clearWorkoutProgress(userId, day) {
-  try {
-    const key = getProgressKey(userId, day);
-    localStorage.removeItem(key);
-  } catch (e) {
-    console.error('Failed to clear workout progress from localStorage:', e);
-  }
+export function clearWorkoutProgress(userId, day, date = localDate()) {
+  writeLocal(receiptKey(userId, day, date), { finishedAt: new Date().toISOString() });
+  removeLocal(getProgressKey(userId, day, date));
+  removeLocal(`workout_progress_${userId}_${normalizeDayName(day)}`);
 }
 
-// ==========================================
-// In-Progress Workout Persistence (Supabase)
-// ==========================================
-
-/**
- * Get today's date in YYYY-MM-DD format for the user's timezone
- */
-const getTodayDate = () => {
-  return new Date().toLocaleDateString('en-CA');
-};
-
-/**
- * Save exercise progress to Supabase (called on each set confirmation).
- * Uses upsert to handle both insert and update cases.
- * @param {string} userId
- * @param {string} day - e.g., 'lunes'
- * @param {number} exerciseIndex
- * @param {string} exerciseName
- * @param {Array} setsData - Array of set objects
- * @param {boolean} completed - Whether exercise is fully completed
- * @returns {Promise<{error: Error|null}>}
- */
-export async function saveExerciseProgressToSupabase(userId, day, exerciseIndex, exerciseName, setsData, completed) {
-  const maxRetries = 3;
-  let lastError = null;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const { error } = await supabase
-        .from('workout_progress')
-        .upsert({
-          user_id: userId,
-          day: day,
-          workout_date: getTodayDate(),
-          exercise_index: exerciseIndex,
-          exercise_name: exerciseName,
-          sets_data: setsData,
-          completed: completed,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,day,workout_date,exercise_index'
-        });
-
-      if (error) {
-        lastError = error;
-        // Retry on transient errors (network issues, timeouts)
-        if (attempt < maxRetries) {
-          await new Promise(r => setTimeout(r, 500 * attempt)); // Exponential backoff
-          continue;
-        }
-        handleSupabaseError(error, 'saveExerciseProgressToSupabase');
-        return { error };
-      }
-
-      return { error: null };
-    } catch (e) {
-      lastError = e;
-      // Retry on network errors (TypeError: Load failed, etc.)
-      if (attempt < maxRetries) {
-        await new Promise(r => setTimeout(r, 500 * attempt));
-        continue;
-      }
-      handleSupabaseError(e, 'saveExerciseProgressToSupabase (unexpected)');
-      return { error: e };
+export function saveExerciseProgressToSupabase(userId, day, exerciseIndex, exerciseName, setsData, completed, metadata = {}) {
+  const date = metadata.workoutDate || localDate();
+  const updatedAt = metadata.updatedAt || new Date().toISOString();
+  // Metadatos dentro de JSON: compatible con la tabla actual y con la migración.
+  const sets = setsData.map(set => ({ ...set, _exerciseId: metadata.exerciseId, _revision: metadata.revision,
+    _sessionKey: metadata.sessionKey, _startedAt: metadata.startedAt }));
+  return enqueueSave(progressQueueKey(userId, day, date), async () => {
+    let error;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const result = await supabase.from('workout_progress').upsert({ user_id: userId, day: normalizeDayName(day), workout_date: date,
+          exercise_index: exerciseIndex, exercise_name: exerciseName, sets_data: sets, completed, updated_at: updatedAt },
+          { onConflict: 'user_id,day,workout_date,exercise_index' });
+        error = result.error;
+      } catch (caught) { error = caught; }
+      if (!error) return { error: null };
+      if (error.code && !['57014', '53300'].includes(error.code)) break;
+      if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
     }
-  }
-
-  return { error: lastError };
+    handleSupabaseError(error, 'saveExerciseProgressToSupabase');
+    return { error };
+  });
 }
 
-/**
- * Load all exercise progress from Supabase for today's workout.
- * @param {string} userId
- * @param {string} day - e.g., 'lunes'
- * @returns {Promise<{exercisesState: Object, error: Error|null}>}
- */
-export async function loadWorkoutProgressFromSupabase(userId, day) {
+export async function loadWorkoutProgressFromSupabase(userId, day, date = localDate()) {
   try {
-    const { data, error } = await supabase
-      .from('workout_progress')
-      .select('exercise_index, exercise_name, sets_data, completed')
-      .eq('user_id', userId)
-      .eq('day', day)
-      .eq('workout_date', getTodayDate());
-
-    if (error) {
-      handleSupabaseError(error, 'loadWorkoutProgressFromSupabase');
-      return { exercisesState: null, error };
-    }
-
-    if (!data || data.length === 0) {
-      return { exercisesState: null, error: null };
-    }
-
-    // Convert array to exercisesState object format
+    const { data, error } = await supabase.from('workout_progress').select('*').eq('user_id', userId).eq('day', normalizeDayName(day)).eq('workout_date', date);
+    if (error) throw error;
+    const receipt = readLocal(receiptKey(userId, day, date));
     const exercisesState = {};
-    data.forEach(row => {
-      exercisesState[row.exercise_index] = {
-        sets: row.sets_data || [],
-        completed: row.completed || false
-      };
-    });
-
+    for (const row of data || []) {
+      if (receipt && row.updated_at <= receipt.finishedAt) continue;
+      const first = row.sets_data?.[0];
+      exercisesState[row.exercise_index] = { exerciseId: first?._exerciseId, exerciseName: row.exercise_name,
+        revision: first?._revision, sessionKey: first?._sessionKey, startedAt: first?._startedAt,
+        updatedAt: row.updated_at, sets: row.sets_data || [], completed: row.completed || false };
+    }
     return { exercisesState, error: null };
-  } catch (e) {
-    handleSupabaseError(e, 'loadWorkoutProgressFromSupabase (unexpected)');
-    return { exercisesState: null, error: e };
-  }
+  } catch (error) { handleSupabaseError(error, 'loadWorkoutProgressFromSupabase'); return { exercisesState: null, error }; }
 }
 
-/**
- * Clear all progress for today's workout from Supabase (call after final save).
- * @param {string} userId
- * @param {string} day
- * @returns {Promise<{error: Error|null}>}
- */
-export async function clearWorkoutProgressFromSupabase(userId, day) {
+export async function clearWorkoutProgressFromSupabase(userId, day, date = localDate()) {
+  await drainSaves(progressQueueKey(userId, day, date));
   try {
-    const { error } = await supabase
-      .from('workout_progress')
-      .delete()
-      .eq('user_id', userId)
-      .eq('day', day)
-      .eq('workout_date', getTodayDate());
-
-    if (error) {
-      handleSupabaseError(error, 'clearWorkoutProgressFromSupabase');
-      return { error };
-    }
-
+    const { error } = await supabase.from('workout_progress').delete().eq('user_id', userId).eq('day', normalizeDayName(day)).eq('workout_date', date);
+    if (error) throw error;
     return { error: null };
-  } catch (e) {
-    handleSupabaseError(e, 'clearWorkoutProgressFromSupabase (unexpected)');
-    return { error: e };
+  } catch (error) { handleSupabaseError(error, 'clearWorkoutProgressFromSupabase'); return { error }; }
+}
+
+export async function waitForWorkoutSaves(userId, day, date) {
+  await drainSaves(progressQueueKey(userId, day, date));
+}
+
+export async function resolveTechniqueVideo(reference) {
+  const publicPrefix = '/storage/v1/object/public/technique-videos/';
+  let filePath;
+  if (reference.startsWith('storage:technique-videos/')) filePath = reference.slice('storage:technique-videos/'.length);
+  else if (reference.includes(publicPrefix)) {
+    const parsed = new URL(reference);
+    filePath = decodeURIComponent(parsed.pathname.split(publicPrefix)[1]);
+  } else {
+    if (!/^https?:\/\//i.test(reference)) throw new Error('El enlace del vídeo no es válido.');
+    return reference;
   }
+  const { data, error } = await supabase.storage.from('technique-videos').createSignedUrl(filePath, 3600);
+  if (error) throw error;
+  return data.signedUrl;
 }

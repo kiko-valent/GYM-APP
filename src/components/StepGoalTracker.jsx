@@ -36,7 +36,7 @@ function getCurrentWeek() {
   });
 }
 
-export default function StepGoalTracker() {
+export default function StepGoalTracker({ goal = 15000 }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const week = useMemo(() => getCurrentWeek(), []);
@@ -111,7 +111,7 @@ export default function StepGoalTracker() {
       toast({
         variant: 'destructive',
         title: 'No se pudo guardar',
-        description: 'El check de 15.000 pasos no se ha actualizado.',
+        description: 'El objetivo de pasos no se ha actualizado.',
       });
     }
 
@@ -138,7 +138,7 @@ export default function StepGoalTracker() {
             <Footprints className="w-5 h-5 text-lime" />
           </div>
           <div>
-            <h2 id="step-goal-title" className="text-white font-bold">15.000 pasos</h2>
+            <h2 id="step-goal-title" className="text-white font-bold">{goal.toLocaleString('es-ES')} pasos</h2>
             <p className="text-secondary text-xs mt-0.5">Marca los días en los que superaste el objetivo</p>
           </div>
         </div>
@@ -161,7 +161,7 @@ export default function StepGoalTracker() {
                 type="button"
                 onClick={() => toggleDay(day)}
                 disabled={loading || day.isFuture || saving}
-                aria-label={`${completed ? 'Desmarcar' : 'Marcar'} objetivo de 15.000 pasos del ${day.date.toLocaleDateString('es-ES')}`}
+                aria-label={`${completed ? 'Desmarcar' : 'Marcar'} objetivo de ${goal.toLocaleString('es-ES')} pasos del ${day.date.toLocaleDateString('es-ES')}`}
                 aria-pressed={completed}
                 className={`w-full aspect-square max-w-12 rounded-xl flex items-center justify-center border transition-all duration-200
                   ${completed
